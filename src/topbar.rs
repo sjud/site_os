@@ -4,25 +4,24 @@ pub const DROP_DOWN_LIST_ITEM_ID: &'static str = "drop_down_list_item";
 #[component]
 pub fn TopBar() -> impl IntoView {
     view!{
-        <div class="w-full h-6 bg-slate-500 bg-opacity-50 flex justify-start">
+        <div class="w-full h-6 bg-slate-500 bg-opacity-20 backdrop-blur-sm flex justify-start fixed top-0">
             <TopBarProvider>
             <div class="flex">
             <DropDownButton show=DropDownShow::Logo>
                 <TopLeftEye/>    
             </DropDownButton>
             <DropDownButton show=DropDownShow::File>
-            <span class="ml-3 mr-3">"File"</span>
+            "File"
             </DropDownButton>
             <DropDownButton show=DropDownShow::Edit>
-            <span class="ml-3 mr-3">"Edit"</span>
+            "Edit"
             </DropDownButton>
             <DropDownButton show=DropDownShow::View>
-            <span class="ml-3 mr-3">"View"</span>
+            "View"
             </DropDownButton>
             <DropDownButton show=DropDownShow::Help>
-            <span class="ml-3 mr-3">"Help"</span>
+            "Help"
             </DropDownButton>
-
             </div>
             <DropDown/>
             </TopBarProvider>
@@ -47,15 +46,8 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
     view!{
         <button
         _ref=btn_ref
-         id=move || match show {
-            DropDownShow::Logo => "logo_topbar_btn",
-            DropDownShow::File => "file_topbar_btn",
-            DropDownShow::Edit => "edit_topbar_btn",
-            DropDownShow::View => "view_topbar_btn",
-            DropDownShow::Help => "help_topbar_btn",
-            _ => ""
-        }
-        class="ml-3 mr-3 rounded-[0.25rem]"
+         id="topbar_btn"
+        class="pl-3 pr-3 rounded-[0.25rem]"
         on:click=move |ev| {
             if read_show.get_untracked() == show {
                 set_show(DropDownShow::None)
@@ -121,7 +113,7 @@ pub fn DropDown() -> impl IntoView {
             move || match show() {
                     DropDownShow::None => view!{}.into_view(),
                     DropDownShow::Logo => view!{
-                        <DropDownListItem name="About"/>
+                        <DropDownListItem name="About site_os"/>
                         <DropDownListItem name="System Preferences"/>
                         <DropDownListItem name="App Store"/>
                     }.into_view(),
@@ -176,9 +168,7 @@ pub struct DropDownXY((i32,i32));
 fn TopBarProvider(children:Children) -> impl IntoView {
     provide_context::<RwSignal<DropDownShow>>(create_rw_signal(DropDownShow::None));
     provide_context::<RwSignal<DropDownXY>>(create_rw_signal(DropDownXY((0,0))));
-    view!{
-        {children()}
-    }
+    children()
 }
 
 #[component]

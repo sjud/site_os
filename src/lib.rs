@@ -15,6 +15,7 @@ pub mod server_state;
 pub mod user_msg;
 pub mod topbar;
 pub mod bottombar;
+pub mod desktop;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -34,11 +35,11 @@ pub fn App() -> impl IntoView {
             background-image: url(bg.png);
             background-repeat: repeat;"/>
                 <Routes>
-                    <Route path="/" view=|| view!{
+                    <Route path="" view=|| view!{
                         <topbar::TopBar/>
-                    }>
-                        <Route path="" view=|| view!{}/>
-                    </Route>
+                        <desktop::Desktop/>
+                        <bottombar::BottomBar/>
+                    }/>
                 </Routes>
             </main>
         </Router>
