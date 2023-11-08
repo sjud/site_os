@@ -1,0 +1,101 @@
+[package]
+name = "site_os"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-trait = {version = "0.1.68",optional=true}
+axum = { version = "0.6.4", optional = true }
+cfg-if = "1"
+chrono = {version="0.4.31",features=["wasmbind"]}
+console_error_panic_hook = "0.1.7"
+console_log = "0.2"
+http = { version = "0.2.8", optional = true }
+gloo = { version = "0.10.0", features=["timers"]}
+leptos = { version = "0.5.2", features = ["nightly", "serde", "experimental-islands"] }
+leptos_axum = { version = "0.5.2", optional = true, features = ["experimental-islands"]}
+leptos_meta = { version = "0.5.2", features = ["nightly"]}
+leptos_router = { version = "0.5.2", features = ["nightly"] }
+leptos_sse = "0.2.0"
+leptos-use = "0.8.1"
+log = "0.4"
+serde = { version = "1.0.148", features = ["derive"] }
+tower = { version = "0.4.13", optional = true }
+tower-http = {version="0.4.0",features=["fs","set-header","compression-br","cors","auth","propagate-header"],optional = true}
+
+tokio = { version = "1.22.0", features = ["full"], optional = true }
+wasm-bindgen = "0.2.88" 
+web-sys = { version = "0.3.65", features=["HtmlDocument","Document","HtmlElement","CssStyleDeclaration","Event"] }
+
+[features]
+default = []
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+ssr = [
+    "async-trait",
+    "axum",
+    "http",
+    "leptos_sse/ssr",
+    "leptos_sse/axum",
+    "leptos/ssr",
+    "leptos-use/ssr",
+    "leptos_axum",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "tower",
+    "tower-http",
+    "tokio",
+]
+
+
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
+output-name = "site_os"
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "target/site"
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg
+site-pkg-dir = "pkg"
+#Optional, Activates the tailwind build
+tailwind-input-file = "style/output.css"
+# [Optional] Files in the asset-dir will be copied to the site-root directory
+assets-dir = "public"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+#site-addr = "127.0.0.1:3000"
+site-addr = "0.0.0.0:8080"
+# The port to use for automatic reload monitoring
+reload-port = 3001
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults"
+# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+watch = false
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = ["ssr"]
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = ["hydrate"]
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false
