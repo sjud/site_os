@@ -18,7 +18,7 @@ pub fn Desktop() -> impl IntoView{
 pub fn DesktopItem(src:&'static str) -> impl IntoView{
     view!{
         <div class="w-24" id=src
-        on:dragstart = move |ev| {ev.data_transfer().unwrap().set_data("text/plain",event_target::<web_sys::HtmlElement>(&ev).id().as_str());}
+        //on:dragstart = move |ev| {ev.data_transfer().unwrap().set_data("text/plain",event_target::<web_sys::HtmlElement>(&ev).id().as_str());}
         >
         <img src=src clas="w-16" />
         </div>

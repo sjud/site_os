@@ -4,7 +4,7 @@ pub const DROP_DOWN_LIST_ITEM_ID: &'static str = "drop_down_list_item";
 #[component]
 pub fn TopBar() -> impl IntoView {
     view!{
-        <div class="w-full h-6 bg-slate-500 bg-opacity-20 backdrop-blur-sm flex justify-start fixed top-0">
+        <div class="w-full h-6 bg-slate-500 bg-opacity-20 backdrop-blur-md flex justify-start fixed top-0">
             <TopBarProvider>
             <div class="flex">
             <DropDownButton show=DropDownShow::Logo>
@@ -47,7 +47,7 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
         <button
         _ref=btn_ref
          id="topbar_btn"
-        class="pl-3 pr-3 rounded-[0.25rem]"
+        class="pl-3 pr-3 rounded-[0.25rem] "
         on:click=move |ev| {
             if read_show.get_untracked() == show {
                 set_show(DropDownShow::None)
@@ -106,7 +106,7 @@ pub fn DropDown() -> impl IntoView {
     });
     on_cleanup(move || handle.remove());
     view!{
-        <div class="flex flex-col bg-slate-700 bg-opacity-50 rounded-[0.25rem] pt-1 pb-1" 
+        <div class="flex flex-col bg-slate-700 bg-opacity-50 backdrop-blur-md rounded-[0.25rem] pt-1 pb-1" 
         style=drop_down_xy_style
         _ref=div_ref id="dropdown">
             {   
@@ -115,7 +115,7 @@ pub fn DropDown() -> impl IntoView {
                     DropDownShow::Logo => view!{
                         <DropDownListItem name="About site_os"/>
                         <DropDownListItem name="System Preferences"/>
-                        <DropDownListItem name="App Store"/>
+                       // <DropDownListItem name="App Store"/>
                     }.into_view(),
                     DropDownShow::File => view!{
                         <DropDownListItem name="New Folder"/>

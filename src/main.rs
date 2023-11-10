@@ -41,7 +41,7 @@ async fn main() {
 // client-only stuff for Trunk
 #[cfg(not(feature = "ssr"))]
 pub fn main() {
-    use abysschart::*;
+    use site_os::*;
     use leptos::*;
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
