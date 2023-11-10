@@ -2,7 +2,7 @@
 use serde::{Serialize,Deserialize};
 
 use web_sys::wasm_bindgen::JsCast;
-
+use uuid::Uuid;
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
@@ -18,8 +18,8 @@ pub mod user_msg;
 pub mod topbar;
 pub mod taskbar;
 pub mod desktop;
-pub mod file_system;
-use file_system::SystemRuntime;
+pub mod system_runtime;
+use system_runtime::SystemRuntime;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -39,7 +39,7 @@ pub fn App() -> impl IntoView {
             background-image: url(bg.png);
             background-repeat: repeat;"/>
                 <Routes>
-                    <Route path="" view=|| view!{<Desktop/>}/>
+                    <Route path="" view=|| view!{<OperatingSystem/>}/>
                 </Routes>
             </main>
         </Router>
@@ -47,100 +47,140 @@ pub fn App() -> impl IntoView {
 }
 
 
-
 #[component]
-pub fn Desktop() -> impl IntoView {
+pub fn OperatingSystem() -> impl IntoView {
+    use system_runtime::*;
+    provide_context::<RwSignal<SystemRuntime>>(create_rw_signal(SystemRuntime::new(
+        {
+            let mut file_system = FileSystem::new();
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/".to_string(),
+                Metadata{
+                file_type:FileType::Directory,
+                img_src:"/hard-disk.png".to_string(),
+                task_bar:None,
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/bin".to_string(),
+                Metadata{
+                file_type:FileType::Directory,
+                img_src:"/folder.png".to_string(),
+                task_bar:None,
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+            "/bin/folder.png".to_string(),
+            Metadata{
+                file_type:FileType::File,
+                img_src:"/folder.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:0,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/bin/browser".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/browser.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:1,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/bin/calendar".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/calendar.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:2,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/calculator".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/calculator.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:3,
+                }),
+                ..Default::default()
+            });
+             file_system.add_file(
+                Uuid::new_v4(),
+                "/text".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/text.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:4,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/csv".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/csv-file.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:5,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/picture".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/picture.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:6,
+                }),
+                ..Default::default()
+            });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/terminal".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/terminal.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:7,
+                }),
+                ..Default::default()
+            });
+            file_system
+        },
+    )));
     view!{
-        <OperatingSystemProvider>
         <topbar::TopBar/>
         <desktop::Desktop/>
         <taskbar::TaskBar/>
-        </OperatingSystemProvider>
     }
 }
 
 
 
-#[island]
-pub fn OperatingSystemProvider(children:Children) -> impl IntoView {
-    use file_system::*;
-    provide_context::<RwSignal<SystemRuntime>>(create_rw_signal(SystemRuntime::new(
-        {
-            let mut file_system = FileSystem::new();
-            file_system.add_file("/finder".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/folder.png".to_string(),
-            });
-            file_system.add_file("/browser".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/browser.png".to_string(),
-            });
-            file_system.add_file("/calendar".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/calendar.png".to_string(),
-            });
-            file_system.add_file("/calculator".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/calculator.png".to_string(),
-            });
-             file_system.add_file("/text".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/text.png".to_string(),
-            });
-            file_system.add_file("/csv".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/csv-file.png".to_string(),
-            });
-            file_system.add_file("/picture".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/picture.png".to_string(),
-            });
-            file_system.add_file("/terminal".to_string(),Metadata{
-                accessed:0,
-                created:0,
-                modified:0,
-                file_type:FileType::File,
-                img_src:"/terminal.png".to_string(),
-            });
-            file_system
-        },
-        vec![
-            "/finder".to_string(),
-            "/browser".to_string(),
-            "/calendar".to_string(),
-            "/calculator".to_string(),
-            "/text".to_string(),
-            "/csv".to_string(),
-            "/picture".to_string(),
-            "/terminal".to_string(),
-            ]
-    )));
 
-    children()
-}
-
-#[island]
+#[component]
 pub fn DisableRightClick() -> impl IntoView {
     let _ = window_event_listener(ev::contextmenu, |ev| {
         ev.prevent_default();
@@ -159,7 +199,7 @@ cfg_if! {
         pub fn hydrate() {
             #[cfg(debug_assertions)]
             console_error_panic_hook::set_once();
-            leptos::leptos_dom::HydrationCtx::stop_hydrating();
+            leptos::mount_to_body(App);
         }
     }
 }

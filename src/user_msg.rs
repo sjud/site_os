@@ -1,6 +1,6 @@
 use super::*;
 
-#[island]
+#[component]
 pub fn UserMsg() -> impl IntoView {
     let state = expect_context::<RwSignal<client_state::ClientState>>();
     let (msg, msg_set) = create_slice(

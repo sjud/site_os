@@ -3,9 +3,11 @@ use super::*;
 pub const DROP_DOWN_LIST_ITEM_ID: &'static str = "drop_down_list_item";
 #[component]
 pub fn TopBar() -> impl IntoView {
+    provide_context::<RwSignal<DropDownShow>>(create_rw_signal(DropDownShow::None));
+    provide_context::<RwSignal<DropDownXY>>(create_rw_signal(DropDownXY((0,0))));
+   
     view!{
         <div class="w-full h-6 bg-slate-500 bg-opacity-20 backdrop-blur-md flex justify-start fixed top-0">
-            <TopBarProvider>
             <div class="flex">
             <DropDownButton show=DropDownShow::Logo>
                 <TopLeftEye/>    
@@ -24,12 +26,11 @@ pub fn TopBar() -> impl IntoView {
             </DropDownButton>
             </div>
             <DropDown/>
-            </TopBarProvider>
         </div>
     }
 }
 
-#[island]
+#[component]
 fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
     let set_show = expect_context::<RwSignal<DropDownShow>>().write_only();
     let read_show = expect_context::<RwSignal<DropDownShow>>().read_only();
@@ -72,7 +73,7 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
 
 #[derive(PartialEq,Clone,Debug)]
 pub struct HoverHighlight(pub bool);
-#[island]
+#[component]
 pub fn DropDown() -> impl IntoView {
     let div_ref = create_node_ref::<leptos::html::Div>();
     let show = expect_context::<RwSignal<DropDownShow>>().read_only();
@@ -164,12 +165,7 @@ enum DropDownShow{
 }
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct DropDownXY((i32,i32));
-#[island]
-fn TopBarProvider(children:Children) -> impl IntoView {
-    provide_context::<RwSignal<DropDownShow>>(create_rw_signal(DropDownShow::None));
-    provide_context::<RwSignal<DropDownXY>>(create_rw_signal(DropDownXY((0,0))));
-    children()
-}
+
 
 #[component]
 pub fn TopLeftEye() -> impl IntoView {

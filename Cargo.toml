@@ -21,15 +21,16 @@ console_error_panic_hook = "0.1.7"
 console_log = "0.2"
 http = { version = "0.2.8", optional = true }
 gloo = { version = "0.10.0", features=["timers"]}
-leptos = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly", "serde", "experimental-islands"] }
-leptos_axum = { git = "https://github.com/leptos-rs/leptos", branch = "main", optional = true, features = ["experimental-islands"] }
-leptos_meta = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly"] }
-leptos_router = { git = "https://github.com/leptos-rs/leptos", branch = "main", features = ["nightly"] }
+leptos = { version = "0.5.2", features = ["nightly", "serde"] }
+leptos_axum = { version = "0.5.2", optional = true}
+leptos_meta = { version = "0.5.2", features = ["nightly"]}
+leptos_router = { version = "0.5.2", features = ["nightly"] }
 leptos_sse = "0.2.0"
 leptos-use = "0.8.2"
 log = "0.4"
 serde = { version = "1.0.148", features = ["derive"] }
 tower = { version = "0.4.13", optional = true }
+uuid = {version="1.1.2",features=["serde","v4","js"]}
 tower-http = {version="0.4.0",features=["fs","set-header","compression-br","cors","auth","propagate-header"],optional = true}
 
 tokio = { version = "1.22.0", features = ["full"], optional = true }
