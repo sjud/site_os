@@ -574,8 +574,16 @@ video {
   z-index: 50;
 }
 
+.-z-50 {
+  z-index: -50;
+}
+
 .m-1 {
   margin: 0.25rem;
+}
+
+.m-auto {
+  margin: auto;
 }
 
 .ml-3 {
@@ -626,6 +634,14 @@ video {
   height: auto;
 }
 
+.h-\[100vh\] {
+  height: 100vh;
+}
+
+.h-\[95vh\] {
+  height: 95vh;
+}
+
 .w-1 {
   width: 0.25rem;
 }
@@ -644,6 +660,14 @@ video {
 
 .w-9\/12 {
   width: 75%;
+}
+
+.w-\[100vw\] {
+  width: 100vw;
+}
+
+.w-\[95vw\] {
+  width: 95vw;
 }
 
 .-translate-x-1\/2 {

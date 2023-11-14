@@ -18,7 +18,6 @@ pub fn Folder(file_id:Uuid) -> impl IntoView{
         for child_id in children_ids() {
             views.push(
                 view!{
-                    <Icon file_id=child_id icon_side_len=30/>
                 }
             );
         }

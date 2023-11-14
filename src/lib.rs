@@ -19,12 +19,9 @@ pub mod topbar;
 pub mod taskbar;
 pub mod desktop;
 pub mod system_runtime;
-pub mod icon_grid;
-pub mod icon;
 pub mod active_procceses;
 pub mod application;
 pub mod folder;
-use icon::Icon;
 use system_runtime::SystemRuntime;
 #[component]
 pub fn App() -> impl IntoView {
@@ -60,7 +57,7 @@ pub fn OperatingSystem() -> impl IntoView {
         {
             let mut file_system = FileSystem::new();
             file_system.add_file(
-                Uuid::new_v4(),
+                Uuid::from_u128(1),
                 "/".to_string(),
                 Metadata{
                 file_type:FileType::Directory,
@@ -73,16 +70,16 @@ pub fn OperatingSystem() -> impl IntoView {
                 "/bin".to_string(),
                 Metadata{
                 file_type:FileType::Directory,
-                img_src:"/folder.png".to_string(),
+                img_src:"/folder2.png".to_string(),
                 task_bar:None,
                 ..Default::default()
             });
             file_system.add_file(
                 Uuid::new_v4(),
-            "/bin".to_string(),
+            "/bin/finder".to_string(),
             Metadata{
-                file_type:FileType::Directory,
-                img_src:"/folder.png".to_string(),
+                file_type:FileType::File,
+                img_src:"/finder.png".to_string(),
                 task_bar:Some(TaskBarData{
                     is_jumping:false,
                     idx:0,
@@ -91,10 +88,10 @@ pub fn OperatingSystem() -> impl IntoView {
             });
             file_system.add_file(
                 Uuid::new_v4(),
-                "/bin/browser".to_string(),
+                "/bin/firefox".to_string(),
                 Metadata{
                 file_type:FileType::File,
-                img_src:"/browser.png".to_string(),
+                img_src:"/firefox.png".to_string(),
                 task_bar:Some(TaskBarData{
                     is_jumping:false,
                     idx:1,

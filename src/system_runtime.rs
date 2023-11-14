@@ -1,3 +1,5 @@
+use crate::topbar::{TopBarField, ProgramTopBarData};
+
 use super::*;
 use std::collections::{HashSet,HashMap};
 use std::str::FromStr;
@@ -5,6 +7,78 @@ use std::str::FromStr;
 pub struct SystemRuntime{
     pub active_proccesses:ActiveProccesses,
     pub file_system:FileSystem,
+    pub selected_file_id:Option<Uuid>,
+    pub settings:SystemSettings,
+    pub program_top_bar:Option<ProgramTopBarData>,
+}
+
+#[derive(Debug,PartialEq,Clone,Default)]
+pub struct SystemSettings{
+    pub desktop:DesktopSettings,
+    pub taskbar:TaskBarSettings,
+    // maps file id to folder settings, (if file is a fodler)
+    pub folder:HashMap<Uuid,FolderSettings>
+}
+
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub enum FileSortBy{
+    None,
+    SnapToGrid,
+    Name,
+    Kind,
+    DateLastOpened,
+    DateModified,
+    DateCreated,
+}
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub enum FolderView{
+    AsIcons{
+        size:f32,
+        spacing:f32,
+        text_size:f32,
+    },
+    AsList{
+        line_height:f32,
+    },
+    AsColumns{
+        line_height:f32,
+    },
+    AsGallery{
+        icon_size:f32,
+    }
+}
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub struct DesktopSettings{
+    pub icon_size:f32,
+    pub sort_by:FileSortBy,
+    pub use_stacks:bool,
+}
+impl Default for DesktopSettings {
+    fn default() -> Self {
+        Self { icon_size: 3., sort_by: FileSortBy::SnapToGrid, use_stacks: false }
+    }
+}
+
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub struct FolderSettings{
+    pub view:FolderView,
+    pub sort_by:FileSortBy,
+}
+impl Default for FolderSettings {
+    fn default() -> Self {
+        Self { view: FolderView::AsIcons { size: 3., spacing: 1., text_size: 1. }, sort_by: FileSortBy::SnapToGrid }
+    }
+}
+
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub struct TaskBarSettings{
+    pub icon_size:f32,
+    pub magnification:f32,
+}
+impl Default for TaskBarSettings {
+    fn default() -> Self {
+        Self { icon_size: 3., magnification: 1.5 }
+    }
 }
 
 #[derive(Debug,PartialEq,Clone)]
@@ -23,24 +97,35 @@ pub struct ActiveProcess{
     pub window_stack_idx:usize,
     pub minimized:bool,
 }
-impl SystemRuntime{
+impl SystemRuntime {
     pub fn new(file_system:FileSystem) -> Self {
         Self {
             active_proccesses:ActiveProccesses::new(),
             file_system,
+            selected_file_id:None,
+            settings:SystemSettings::default(),
+            program_top_bar:None,
         }
     }
+
+    pub fn select_file(&mut self,file_id:Uuid)  {
+        self.selected_file_id=Some(file_id);
+    }   
+
     pub fn file_type(&self,file_id:Uuid) -> FileType {
         self.file_system.tree.get(&file_id).unwrap().metadata.file_type
     }
+
     pub fn is_jumping(&self,id:Uuid) -> bool {
         self.file_system.tree.get(&id).as_ref().unwrap()
             .metadata.task_bar.as_ref().map(|t|t.is_jumping)
             .unwrap_or_default()
     }
+
     pub fn is_running(&self,id:Uuid) -> bool {
         self.active_proccesses.0.contains_key(&id)
     }
+    
     pub fn set_jumping(&mut self,id:Uuid) {
         self.file_system.tree.get_mut(&id).unwrap()
             .metadata.task_bar.as_mut().map(|d|d.is_jumping = !d.is_jumping);
@@ -63,6 +148,7 @@ impl SystemRuntime{
     pub fn path_from_file_id(&self,file_id:Uuid) -> String {
         self.file_system.tree.get(&file_id).and_then(|node|node.path.to_str()).unwrap().to_string()
     }
+
     pub fn run_app(&mut self, id:Uuid,time:f64) {
         if let Some(file) = self.file_system.tree.get_mut(&id) {
             file.metadata.accessed = time;
@@ -71,9 +157,9 @@ impl SystemRuntime{
             self.active_proccesses.0.insert(
                 id,
                 ActiveProcess { 
-                start_time,
-                window_stack_idx: stack_size+1,
-                 minimized: false 
+                    start_time,
+                    window_stack_idx: stack_size+1,
+                    minimized: false 
                 }
             );
         }

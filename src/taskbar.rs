@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use super::*;
 
+use super::*;
 
 
 #[component]
@@ -49,11 +49,14 @@ pub fn TaskBarItem(id:Uuid) -> impl IntoView {
     let parent_id = move || format!("parent-{}",id);
     let running_marker_id = move || format!("marker-{}",id);
     let (dragover,set_dragover) = create_signal(false);
-
+    let system_runtime = expect_context::<RwSignal<SystemRuntime>>();
+    let img_src = create_read_slice(system_runtime,move |state|state.img_src(id));
+    let run_app = create_write_slice(system_runtime,
+        move |state,_|state.run_app(id,0.));
+ 
     view!{
  
         <div 
-        id = parent_id()
         on:dragover=move |ev| {
             ev.prevent_default();
             set_dragover(true);
@@ -81,22 +84,21 @@ pub fn TaskBarItem(id:Uuid) -> impl IntoView {
         }
         >
         <button 
-      
         class="pl-2 pr-2 pt-1 pb-1 transition-all ease-linear duration-100 hover:scale-[1.50] hover:-translate-y-2"
             id=id.to_string()
-            on:click =  move |_| {
-                    run_app(());
-                    set_jumping(());
-                    let timeout = gloo::timers::callback::Timeout::new(325, move || {
-                       set_jumping(());
-                    });
-                    timeout.forget();
-                } 
-        >
-        <Icon file_id=id icon_side_len=30/>
-        </button>
+            on:pointerdown =  move |_| {
+                run_app(());
+                set_jumping(());
+                let timeout = gloo::timers::callback::Timeout::new(325, move || {
+                   set_jumping(());
+                });
+                timeout.forget();
+            } 
+           
+         >
+        <img src=img_src/>
+        </button>  
         <div 
-        id=running_marker_id()
         class=("invisible", move || !is_running())
         class="rounded-full bg-slate-400 h-1 w-1 ml-auto mr-auto"> </div>
         </div>
