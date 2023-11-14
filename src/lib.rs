@@ -1,6 +1,6 @@
 #![feature(lazy_cell)]
 use serde::{Serialize,Deserialize};
-
+use std::str::FromStr;
 use web_sys::wasm_bindgen::JsCast;
 use uuid::Uuid;
 use cfg_if::cfg_if;
@@ -19,6 +19,12 @@ pub mod topbar;
 pub mod taskbar;
 pub mod desktop;
 pub mod system_runtime;
+pub mod icon_grid;
+pub mod icon;
+pub mod active_procceses;
+pub mod application;
+pub mod folder;
+use icon::Icon;
 use system_runtime::SystemRuntime;
 #[component]
 pub fn App() -> impl IntoView {
@@ -73,9 +79,9 @@ pub fn OperatingSystem() -> impl IntoView {
             });
             file_system.add_file(
                 Uuid::new_v4(),
-            "/bin/folder.png".to_string(),
+            "/bin".to_string(),
             Metadata{
-                file_type:FileType::File,
+                file_type:FileType::Directory,
                 img_src:"/folder.png".to_string(),
                 task_bar:Some(TaskBarData{
                     is_jumping:false,
@@ -167,12 +173,25 @@ pub fn OperatingSystem() -> impl IntoView {
                 }),
                 ..Default::default()
             });
+            file_system.add_file(
+                Uuid::new_v4(),
+                "/reader".to_string(),
+                Metadata{
+                file_type:FileType::File,
+                img_src:"/reader.png".to_string(),
+                task_bar:Some(TaskBarData{
+                    is_jumping:false,
+                    idx:8,
+                }),
+                ..Default::default()
+            });
             file_system
         },
     )));
     view!{
         <topbar::TopBar/>
         <desktop::Desktop/>
+        <active_procceses::ActiveProcesses/>
         <taskbar::TaskBar/>
     }
 }

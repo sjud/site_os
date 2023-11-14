@@ -4,10 +4,25 @@ use super::*;
 pub fn Desktop() -> impl IntoView{
     view!{
     <div 
-        class="grid gap-10 p-16" 
-        style="repeat(auto-fill, minmax(6rem, 1fr));"
-        on:dragover = move |ev| ev.prevent_default()
-         >
+        class="flex flex-wrap h-full w-full pt-8 pl-4 pr-4 pb-16" 
+        on:dragover = move |ev| ev.prevent_default()>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+         <div class="bg-blue-300 w-24 h-24 m-1"></div>
+
+
         <DesktopItem src="hard-disk.png"/>
     </div>
       
@@ -17,9 +32,7 @@ pub fn Desktop() -> impl IntoView{
 #[component]
 pub fn DesktopItem(src:&'static str) -> impl IntoView{
     view!{
-        <div class="w-24" id=src
-        //on:dragstart = move |ev| {ev.data_transfer().unwrap().set_data("text/plain",event_target::<web_sys::HtmlElement>(&ev).id().as_str());}
-        >
+        <div class="w-24" id=src >
         <img src=src clas="w-16" />
         </div>
     }
