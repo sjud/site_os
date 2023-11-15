@@ -1,3 +1,4 @@
+use crate::taskbar::{ TaskBarDataList};
 use crate::topbar::{TopBarField, ProgramTopBarData};
 
 use super::*;
@@ -10,6 +11,7 @@ pub struct SystemRuntime{
     pub selected_file_id:Option<Uuid>,
     pub settings:SystemSettings,
     pub program_top_bar:Option<ProgramTopBarData>,
+    pub task_bar_items:TaskBarDataList,
 }
 
 #[derive(Debug,PartialEq,Clone,Default)]
@@ -98,13 +100,14 @@ pub struct ActiveProcess{
     pub minimized:bool,
 }
 impl SystemRuntime {
-    pub fn new(file_system:FileSystem) -> Self {
+    pub fn new(file_system:FileSystem,task_bar_ids:Vec<Uuid>) -> Self {
         Self {
             active_proccesses:ActiveProccesses::new(),
             file_system,
             selected_file_id:None,
             settings:SystemSettings::default(),
             program_top_bar:None,
+            task_bar_items: TaskBarDataList::new(task_bar_ids)
         }
     }
 
@@ -116,28 +119,21 @@ impl SystemRuntime {
         self.file_system.tree.get(&file_id).unwrap().metadata.file_type
     }
 
-    pub fn is_jumping(&self,id:Uuid) -> bool {
-        self.file_system.tree.get(&id).as_ref().unwrap()
-            .metadata.task_bar.as_ref().map(|t|t.is_jumping)
-            .unwrap_or_default()
-    }
+ 
 
     pub fn is_running(&self,id:Uuid) -> bool {
         self.active_proccesses.0.contains_key(&id)
     }
     
-    pub fn set_jumping(&mut self,id:Uuid) {
-        self.file_system.tree.get_mut(&id).unwrap()
-            .metadata.task_bar.as_mut().map(|d|d.is_jumping = !d.is_jumping);
-    }
+  
 
-    pub fn swap_taskbar(&mut self, id_a:Uuid,id_b:Uuid) {
-        self.file_system.swap_taskbar(id_a, id_b);
-    }
+  
 
     pub fn task_bar_ids(&self) -> Vec<Uuid> {
-        self.file_system.task_bar_ids()
+        self.task_bar_items.list()
     }
+
+
     pub fn file_ids_direct_children_of_path(&self,path:std::path::PathBuf) -> Vec<Uuid> {
         self.file_system.tree.iter().filter(|node|
             node.1.path.to_path_buf().parent().map(
@@ -145,6 +141,7 @@ impl SystemRuntime {
             ).unwrap_or_default()).map(|node|node.1.file_id)
                 .collect::<Vec<Uuid>>()
     }
+
     pub fn path_from_file_id(&self,file_id:Uuid) -> String {
         self.file_system.tree.get(&file_id).and_then(|node|node.path.to_str()).unwrap().to_string()
     }
@@ -176,19 +173,13 @@ impl SystemRuntime {
     }
 
     pub fn file_is_in_taskbar(&self,id:Uuid) -> bool {
-        if let Some(file) = self.file_system.tree.get(&id) {
-            file.metadata.task_bar.is_some()
-        } else {
-            false
-        }
+        self.task_bar_items.list().contains(&id)
     }
+
     pub fn img_src(&self,file_id:Uuid) -> String {
         self.file_system.tree.get(&file_id)
             .map(|node|node.metadata.img_src.clone()).unwrap_or("".to_string())
-    }
-
-
-  
+    }  
 
 }
 
@@ -200,15 +191,9 @@ pub struct Metadata{
     pub modified:f64,
     pub file_type:FileType,
     pub img_src:String,
-    // if file has task bar data, it's in the taskbar.
-    pub task_bar:Option<TaskBarData>
 }
 
-#[derive(Debug,PartialEq,Clone,Default)]
-pub struct TaskBarData{
-    pub is_jumping: bool,
-    pub idx:usize,
-}
+
 
 #[derive(Debug,PartialEq,Clone,Copy,Default)]
 pub enum FileType{
@@ -235,12 +220,6 @@ pub struct FileSystemNode {
     pub metadata: Metadata, // This struct provides metadata information about a file.
 }
 
-impl FileSystemNode{
-    pub fn is_in_taskbar(&self) -> bool {
-        self.metadata.task_bar.is_some()
-    }
-
-}
 // Define the filesystem as a B-tree map
 #[derive(Debug,PartialEq,Clone)]
 pub struct FileSystem {
@@ -283,30 +262,9 @@ impl FileSystem {
         }
     }
 
-    pub fn swap_taskbar(&mut self,id_a:Uuid,id_b:Uuid) {
-        let mut swap_files = self.tree.iter_mut().filter_map(|(_,node)|
-            if node.file_id==id_a || node.file_id == id_b {
-                Some(node)
-            } else {None}
-        ).collect::<Vec<&mut FileSystemNode>>();
-        // 1 is if we drop it on itself..
-        if swap_files.len() == 2 {
-            let idx_a = swap_files[0].clone().metadata.task_bar.as_ref().unwrap().idx;
-            let idx_b = swap_files[1].clone().metadata.task_bar.as_ref().unwrap().idx;
-            swap_files[0].metadata.task_bar.as_mut().unwrap().idx = idx_b;
-            swap_files[1].metadata.task_bar.as_mut().unwrap().idx = idx_a;
-        }
-    }
+ 
 
-    pub fn task_bar_ids(&self) -> Vec<Uuid> {
-        let mut unsorted_ids = self.tree.iter().filter_map(|(_,node)|if node.is_in_taskbar() {
-            Some((node.file_id,node.metadata.task_bar.as_ref().map(|t|t.idx).unwrap()))
-        } else {
-            None
-        }).collect::<Vec<(Uuid,usize)>>();
-        unsorted_ids.sort_by(|a,b|a.1.cmp(&b.1));
-        unsorted_ids.into_iter().map(|(id,_)|id).collect::<Vec<Uuid>>()
-    }
+
 
     // Removes a file from the filesystem
     pub fn remove_file(&mut self, id:Uuid) {
