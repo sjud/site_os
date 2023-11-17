@@ -169,7 +169,7 @@ pub fn OperatingSystem() -> impl IntoView {
         <topbar::TopBar/>
         <desktop::Desktop/>
         <active_procceses::ActiveProcesses/>
-        <taskbar::TaskBar/>
+        //<taskbar::TaskBar/>
     }
 }
 

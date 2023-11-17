@@ -378,7 +378,7 @@ pub fn DropDown() -> impl IntoView {
 
 #[component]
 fn DropDownListItem(top_bar_field:Rc<dyn TopBarField>) -> impl IntoView{
-    let system = expect_context::<RwSignal<SystemRuntime>>();
+    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
     let read_hover_highlight = expect_context::<RwSignal<HoverHighlight>>().read_only();
     view!{
         <div class="ml-3 mr-3 rounded-[0.25rem]" id=DROP_DOWN_LIST_ITEM_ID
