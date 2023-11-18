@@ -2,7 +2,7 @@ use std::str::FromStr;
 use std::collections::{HashSet, HashMap};
 
 use super::*;
-
+/* 
 
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct TaskBarDataList{
@@ -243,7 +243,8 @@ pub fn TaskBarItem(id:Uuid) -> impl IntoView {
                 mapping.0.write_only().update(|map|{map.get_mut(&id).map(|val|val.side_spacing=Some(SideVariant::Left));});
             } else {
                 mapping.0.write_only().update(|map|{map.get_mut(&id).map(|val|val.side_spacing=Some(SideVariant::Right));});
-            }        }
+            }       
+         }
         on:dragend = move |_| icon.set(None)
         on:drop=move |ev| {
             ev.prevent_default();
@@ -297,4 +298,4 @@ pub fn TaskBarItemButton(id:Uuid,) -> impl IntoView {
         class="rounded-full bg-slate-400 h-1 w-1 ml-auto mr-auto"> 
         </div>
     }
-}
+}*/

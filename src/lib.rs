@@ -22,6 +22,7 @@ pub mod system_runtime;
 pub mod active_procceses;
 pub mod application;
 pub mod folder;
+pub mod dock;
 use system_runtime::SystemRuntime;
 #[component]
 pub fn App() -> impl IntoView {
@@ -63,7 +64,7 @@ pub fn OperatingSystem() -> impl IntoView {
     let terminal_id = Uuid::new_v4();
     let read_id = Uuid::new_v4();
 
-    let task_bar_list = vec![
+    let dock_list = vec![
         finder_id,
         firefox_id,
         calendar_id,
@@ -164,12 +165,12 @@ pub fn OperatingSystem() -> impl IntoView {
         img_src:"/reader.png".to_string(),
         ..Default::default()
     });
-    provide_context::<RwSignal<SystemRuntime>>(create_rw_signal(SystemRuntime::new(file_system,task_bar_list)));
+    provide_context::<RwSignal<SystemRuntime>>(create_rw_signal(SystemRuntime::new(file_system,dock_list)));
     view!{
         <topbar::TopBar/>
         <desktop::Desktop/>
         <active_procceses::ActiveProcesses/>
-        //<taskbar::TaskBar/>
+        <dock::Dock/>
     }
 }
 

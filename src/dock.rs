@@ -1,3 +1,7 @@
+use std::{collections::HashSet, hash::{Hash, Hasher}, cmp::Ordering, f32::consts::E};
+
+use web_sys::{DragEvent, MouseEvent};
+
 use super::*;
 /*
 Specification
@@ -53,153 +57,250 @@ space will not show the icon.
 */
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct DockList{
-    pub list:HashSet<DockItem>,
-    pub dragging_id:Uuid,
-    // An ID without an idx.
-    pub limbo_id:Option<Uuid>,
-}
-#[derive(Debug,PartialEq,Clone,Default)]
-pub struct FileDraggingData{
-    pub file_id:Uuid,
-    pub offset_x:usize,
-    pub offset_y:usize,
-}
-impl FileDraggingData{
-    /// When we click on a file we store the position of the click as offset incase we drag later.
-    pub fn mousedown(&mut self, ev:MouseEvent) {
-        let el = event_target::<web_sys::HtmlElement>(&ev);
-        let rect = el.get_bounding_client_rect();
-        let offset_x = ev.client_x() as f64 - rect.left();
-        let offset_y = ev.client_y() as f64 - rect.top();
-    }
-    /// When we start dragging a file. We need the file id, the img_src of the file.
-    pub fn dragstart(&mut self,ev:DragEvent,id:Uuid,img_src:String) {
-        self.file_id=id;
-        let img = web_sys::HtmlImageElement::new().expect("should create HtmlImageElement");
-        img.set_src(img_src);
-        ev.data_transfer().unwrap().set_drag_image(&img,self.offset_x,self.offset_y);
-        ev.data_transfer().unwrap().set_data("text",id.to_string().as_str()).unwrap();  
-    }
+    list:Vec<Uuid>,
+    /// An ID without an idx.
+    limbo_id:Option<Uuid>,
 }
 
-#[derive(Debug,Copy,Clone)]
-pub struct DockItem{
-    id:Uuid,
-    idx:usize,
-}
-
-impl Hash for DockItem {
-    // We only has the ID,
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-impl PartialEq for DockItem{
-    fn eq(&self, other: &Self) -> bool {
-        // We ignore 
-        self.id == other.id
-    }
-}
-impl Eq for DockItem{}
-
-impl PartialOrd for DockItem{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for DockItem {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.idx.cmp(&other.idx)
-    }
-}
+#[derive(Debug,PartialEq,Clone,Copy)]
 pub enum Shift{
     Left,
     Right,
 }
 impl DockList {
-
+    pub fn on_drop(&mut self) {
+        self.limbo_id = None;
+    }
     /// When we dragover a docking space, we adjust the docking item indexes.
-    pub fn dragover(&mut self,ev:DragEvent,drag_over_id:Uuid,shift:Shift) {
-        let id = ev.data_transfer().unwrap().get_data("text").unwrap().parse::<Uuid>().unwrap();
-        let drag_over_item = self.list.get(DockItem{id,idx:0}).cloned().unwrap();
-        let idx = drag_over_item.idx;
-        let dragging_item = DockItem{
-            id:Uuid,
-            idx,
-        };
-        self.shift(idx,shift);
-        self.list.insert(dragging_item);
+    pub fn drag_over(&mut self,ev:DragEvent,drag_over_idx:usize,dragging_idx:Option<usize>,dragging_id:Uuid) {
+        let el = event_target::<web_sys::HtmlElement>(&ev);
+       
+        let width = el.offset_width();
+       
+        let cursor_position = ev.client_x() - el.get_bounding_client_rect().left() as i32;
+
+       if let Some(dragging_idx) = dragging_idx {
+        if cursor_position < width / 2
+        && drag_over_idx != 0 // we won't eval next line if 0
+        && dragging_idx != drag_over_idx -1{
+            self.list.swap(drag_over_idx,dragging_idx)
+        } else if dragging_idx != drag_over_idx + 1 {
+            self.list.swap(drag_over_idx,dragging_idx)
+
+        }
+       } else {
+        if !self.list.contains(&dragging_id) {
+            self.list.insert(drag_over_idx,dragging_id);
+        }
+       }
     }
 
     pub fn spaces_count(&self) -> usize {
         self.list.len()
     }
 
-    pub fn put_in_limbo(&mut self,id:Uuid) -> usize {
+    pub fn put_in_limbo(&mut self,idx:usize) {
         // we'll get the actualy idx back since we don't include it in our hash or eq.
-        let item = self.list.get(DockItem{id,idx:0}).cloned().unwrap();
-        self.limbo_id = Some(item.id);
-        self.list.remove(&item);
-        item.idx
+        let id = self.list.get(idx).cloned().unwrap();
+        self.limbo_id = Some(id);
+        self.list.remove(idx);
     }
 
-    pub fn new(ordered_ids:Vec<Uuid>) -> Self{
+    pub fn new(list:Vec<Uuid>) -> Self{
         Self{  
-            list:{
-                let mut set = HashSet::new();
-                for (idx,id) in ordered_ids.into_iter().enumerate() {
-                    set.insert(Self{id,idx});
-                }
-                set
-            },
+            limbo_id:None,
+            list,
         }
     }
 
-    /// When we shift an item at id left, we shift the exact item left.
-    /// We're expecting there to be an empty space in the docking space array at idx-1
-    /// 
-    /// When we shift an item right we shift all items at the idx and greater than it
-    /// to the right, we're expecting an empty space at the end of the docking space array.
-    pub fn shift(&mut self, idx:usize,shift:Shift) {
-        for item in self.list.iter_mut() {
-            match shift {
-                Shift::Left => {
-                    if item.idx == idx {
-                        item.idx -= 1;
-                    }
-                },
-                Shift::Right => {
-                    if item.idx >= idx {
-                        item.idx += 1;
-                    }
-                }
-            }
-        }
+   
+
+    pub fn items(&self) -> Vec<Uuid>{
+        self.list.clone()
     }
-
-
     
 }
 
-#[component]
-pub fn Dock() -> impl IntoView{
-    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
-    let task_bar_ids = create_read_slice(
-        system_runtime,
-        |state|state.task_bar_ids());
+#[derive(Debug,PartialEq,Clone,Default)]
+pub struct FileDraggingData{
+    file_id:Option<Uuid>,
+    dock_idx:Option<usize>,
+    offset_x:Option<i32>,
+    offset_y:Option<i32>,
+}
 
-    view!{
+impl FileDraggingData{
+    pub fn on_drop(&mut self) {
+        self.file_id=None;self.offset_x=None;self.offset_y=None;
 
     }
+    /// When we click on a file we store the position of the click as offset incase we drag later.
+    pub fn mouse_down(&mut self, ev:MouseEvent) {
+        let el = event_target::<web_sys::HtmlElement>(&ev);
+        let rect = el.get_bounding_client_rect();
+        self.offset_x = Some((ev.client_x() as f64 - rect.left()) as i32);
+        self.offset_y = Some((ev.client_y() as f64 - rect.top()) as i32);
+    }
+
+    /// When we start dragging a file. We need the file id, the img_src of the file.
+    pub fn drag_start(&mut self,id:Uuid,dock_idx:Option<usize>) {
+        self.file_id=Some(id);self.dock_idx=dock_idx;
+    }
+
 }
 
-#[component]
-pub fn DockingSpace(children:Children) -> impl IntoView {
 
+#[component]
+pub fn ProjectDraggingIcon() -> impl IntoView {
+    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
+
+    let src = create_read_slice(
+        system,move |system| {
+            if let Some(file_id)= system.file_dragging_data.file_id {
+                system.img_src(file_id)
+            } else {
+                "".to_string()
+            }
+        }
+    );
+    let offsets = create_read_slice(system,|system|
+        (system.file_dragging_data.offset_x,system.file_dragging_data.offset_y)
+    );
+    let leptos_use::UseMouseReturn {
+        x, y, ..
+    } = leptos_use::use_mouse();
+
+    view!{
+        {move || zboost.write_only()(!src().is_empty())}
+        <Show when= move || !src().is_empty() fallback = move || ()>
+        <AbyssTarp/>
+        <img 
+        class="w-[4.5rem] z-[100]"
+        src=src style = move || {
+            format!("pointer-events: none;position:absolute;left:{}px;top:{}px;",
+            x() as i32 - offsets().0.unwrap_or_default(),
+            y() as i32 - offsets().1.unwrap_or_default() 
+            )
+        }
+        />
+        </Show>
+    }
+}
+#[component]
+pub fn AbyssTarp() -> impl IntoView{
+    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let drop_item = create_write_slice(system,move |state,()| {
+        state.file_dragging_data.on_drop();
+        state.dock_list.on_drop();
+    });
+    view!{
+        <div class="w-[99vw] h-[99vh] z-[98] absolute top-0"
+            on:drop=move|ev|{drop_item(());}
+            on:dragover=move|ev|ev.prevent_default()
+            >
+        </div>
+    }
+}
+#[derive(PartialEq,Clone,Copy,Debug)]
+pub struct ZBoostDock(pub RwSignal<bool>);
+#[component]
+pub fn Dock() -> impl IntoView{
+    provide_context(ZBoostDock(create_rw_signal(false)));
+    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
+    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let items = create_read_slice(
+        system,
+        |state|state.dock_list.items());
+    create_effect(move |_| leptos::logging::log!("{:?}",items()));
+    view!{
+            <ProjectDraggingIcon/>
+            <div class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
+            left-1/2 transform -translate-x-1/2 flex"
+            class=("z-[99]",move || zboost())
+            >
+            <div class="flex">
+            <For 
+                each=move || items().into_iter().enumerate()
+                key=|(_,id)| *id
+                children=move |(idx,id)| {
+                    view! {
+                        <DockingItem file_id=id idx=idx/>
+                        }
+                  }
+            />    
+                </div>
+            </div>
+        }
 }
 
-#[component]
-pub fn DockingItem(file_id:Uuid) -> impl IntoView{
 
+
+
+#[component]
+pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView{
+    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let img_src = create_read_slice(system,move |state|state.img_src(file_id));
+    let mouse_down = create_write_slice(system,move |state,ev:MouseEvent|
+        state.file_dragging_data.mouse_down(ev));
+     
+    let is_dragging = create_read_slice(system,move |state|
+        state.file_dragging_data.file_id==Some(file_id));
+   
+    let (is_running,run_app) = create_slice(
+        system,
+        move |state| state.is_running(file_id),
+        move |state,()| state.run_app(file_id,0.) 
+    );
+    let (is_jumping,set_jumping) = create_signal(false);
+    let run_app = create_write_slice(system,
+        move |state,_|state.run_app(file_id,0.));
+        
+    let drag_over = create_write_slice(system,
+        move |state,ev|{
+            if let (Some(dragging_id),dragging_idx) = (state.file_dragging_data.file_id,state.file_dragging_data.dock_idx) {
+                state.dock_list.drag_over(ev,idx,dragging_idx,dragging_id);
+            }
+    });
+    let mut throttled_drag_over = leptos_use::use_throttle_fn_with_arg(
+        move |ev| {
+            drag_over(ev)
+        },
+        2000.0,
+    );
+    let drag_start = create_write_slice(system,move |state,ev:DragEvent| {
+            state.file_dragging_data.drag_start(file_id,Some(idx));
+    });
+    
+    view!{
+        <div>
+        <div 
+        class=("animate-jump",move || is_jumping())
+        class=" w-[4.5rem]"        //hover:scale-[1.50] hover:-translate-y-2
+        >
+        <img 
+        on:mousedown = move |ev| {
+            mouse_down(ev)
+        }
+        on:dragstart=move|ev| {
+            drag_start(ev);
+        }
+        on:click =  move |_| 
+            if !is_running() {
+                run_app(());
+                set_jumping(true);
+            }
+        on:dragover=move |ev| {
+            throttled_drag_over(ev);
+        }
+        class=("opacity-0",move || is_dragging())
+        class="rounded-md" src=img_src
+        />
+        </div> 
+        <div 
+        class=("invisible", move || !is_running())
+        class="rounded-full bg-slate-400 h-1 w-1 ml-auto mr-auto"> 
+        </div>
+        </div>
+    }
 }

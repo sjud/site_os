@@ -1,8 +1,8 @@
-use crate::taskbar::{ TaskBarDataList};
-use crate::topbar::{TopBarField, ProgramTopBarData};
+use crate::dock::{DockList, FileDraggingData};
+use crate::topbar::ProgramTopBarData;
 
 use super::*;
-use std::collections::{HashSet,HashMap};
+use std::collections::HashMap;
 use std::str::FromStr;
 #[derive(Debug,Clone,PartialEq)]
 pub struct SystemRuntime{
@@ -11,7 +11,8 @@ pub struct SystemRuntime{
     pub selected_file_id:Option<Uuid>,
     pub settings:SystemSettings,
     pub program_top_bar:Option<ProgramTopBarData>,
-    pub task_bar_items:TaskBarDataList,
+    pub dock_list:DockList,
+    pub file_dragging_data:FileDraggingData,
 }
 
 #[derive(Debug,PartialEq,Clone,Default)]
@@ -100,14 +101,15 @@ pub struct ActiveProcess{
     pub minimized:bool,
 }
 impl SystemRuntime {
-    pub fn new(file_system:FileSystem,task_bar_ids:Vec<Uuid>) -> Self {
+    pub fn new(file_system:FileSystem,dock_list:Vec<Uuid>) -> Self {
         Self {
             active_proccesses:ActiveProccesses::new(),
             file_system,
             selected_file_id:None,
             settings:SystemSettings::default(),
             program_top_bar:None,
-            task_bar_items: TaskBarDataList::new(task_bar_ids)
+            dock_list: DockList::new(dock_list),
+            file_dragging_data:FileDraggingData::default(),
         }
     }
 
@@ -125,13 +127,6 @@ impl SystemRuntime {
         self.active_proccesses.0.contains_key(&id)
     }
     
-  
-
-  
-
-    pub fn task_bar_ids(&self) -> Vec<Uuid> {
-        self.task_bar_items.list()
-    }
 
 
     pub fn file_ids_direct_children_of_path(&self,path:std::path::PathBuf) -> Vec<Uuid> {
@@ -170,10 +165,6 @@ impl SystemRuntime {
                 }
             }
         }
-    }
-
-    pub fn file_is_in_taskbar(&self,id:Uuid) -> bool {
-        self.task_bar_items.list().contains(&id)
     }
 
     pub fn img_src(&self,file_id:Uuid) -> String {
