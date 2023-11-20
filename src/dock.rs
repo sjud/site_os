@@ -62,113 +62,83 @@ impl DockList {
 #[component]
 pub fn Dock() -> impl IntoView{
     let state = expect_context::<SystemState>().0;
-    let width = create_read_slice(state,|state|state.window_dimensions.width * 0.80);
-    /*let max_width = create_read_slice(state,|state|{
-        state.window_dimensions.font_size * 4.5
-    });*/
-    let font_size = create_read_slice(state,|state|{
-        state.window_dimensions.font_size
-    });
-    //let icon_count = create_read_slice(state,|state|state.dock_list.list.len());
-    let icon_size = Signal::derive(move || font_size() * 4.5);
-    //let width = move || icon_size() * icon_count() as f64 + font_size() * 2.;
-    let dock_ref = create_node_ref::<leptos::html::Div>();
-
 
 
     let items = create_read_slice(state,|state|{
         state.dock_list.list.clone()
     });
 
+  
     view!{
        
         <div 
-        _ref=dock_ref
         class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
-        left-1/2 transform -translate-x-1/2"
-        style=move || format!("width:{}px;height:{}px;",width(),icon_size()+10.0)
+        left-1/2 transform -translate-x-1/2 height-20 flex"
         >
-      
-        </div>
         <For 
         each=move || items().into_iter()
         key=|id| *id
         children=move |file_id| 
             view! {
-                <Icon 
-                file_id  
-                init_left=
-                    dock_ref
-                    .get()
-                    .map(|dock|dock
-                        .dyn_ref::<web_sys::HtmlDivElement>()
-                        .unwrap()
-                        .get_bounding_client_rect()
-                        .left() + font_size()/4.0
-                    ).unwrap_or_default() as usize
-                   
-                init_top=
-                    dock_ref.get()
-                        .map(|dock|dock
-                        .dyn_ref::<web_sys::HtmlDivElement>()
-                        .unwrap()
-                        .get_bounding_client_rect()
-                        .top() - font_size()/4.0 )
-                        .unwrap_or_default() as usize
-                icon_size=icon_size() as usize/>
+                <Icon file_id />
                 }
         />   
+        </div>
+      
     }
 }  
 
 
 
 #[component]
-pub fn Icon(file_id:Uuid, init_left:usize, init_top:usize, icon_size:usize) -> impl IntoView {
-
+pub fn Icon(file_id:Uuid) -> impl IntoView {
     let state = expect_context::<SystemState>().0;
+   
     let dock_idx: Signal<Option<usize>> = create_read_slice(state,move|state|
         state.dock_list.list.iter().position(move |id|*id==file_id)
     );
+   
     let (drag_data,set_drag_data) = create_slice(
         state,
         |state|state.drag_data.clone(),
         |state,data|state.drag_data = data,
     );
+    
     let img_src = create_read_slice(state,move |state|state.img_src(file_id));
+   
     let (is_running,run_app) = create_slice(
         state,
         move |state| state.is_running(file_id),
         move |state,()| state.run_app(file_id,0.) 
     );
     let (is_dragging,set_is_dragging) = create_signal(false);
+    
     let leptos_use::UseMouseReturn {
         x, y, ..
     } = leptos_use::use_mouse();
+
     let drag_data = create_read_slice(state,|state|state.drag_data.clone());
-    let left = move |idx| init_left + idx * icon_size;
-    let top = move || init_top;
+    
     let div_ref = create_node_ref::<leptos::html::Div>();
+    
     create_effect(move |idx|  {
-        let non_reactive_idx = idx.unwrap_or(dock_idx.get_untracked().unwrap());
-        let base = format!("width:{}px;height:{}px;left:{}px;top:{}px;",icon_size,icon_size,
-        left(non_reactive_idx),
-        top());
-        let ext = if is_dragging() {
-                format!("pointer-events: none;
+        let style = 
+            if is_dragging() {
+                format!("
+                pointer-events: none;
                 z-index:100;
                 transform:translate({}px,{}px);",
                 x() - drag_data().unwrap().offset_x,
                 y() - drag_data().unwrap().offset_y,
-                )            
+                )                
             }  else {
                 format!("
                 transform:translate(0px,0px);
                 transition: transform 0.25s; 
-                transition-timing-function: linear;")
+                transition-timing-function: linear;"
+            )
         };
-        let style = base + &ext;
-        let div_ref = div_ref().unwrap();
+        let div_ref = div_ref.get_untracked().unwrap();
         
         request_animation_frame(move ||{
             div_ref.set_attribute(
@@ -176,12 +146,8 @@ pub fn Icon(file_id:Uuid, init_left:usize, init_top:usize, icon_size:usize) -> i
             &style
         ).unwrap();
         });
-        if is_dragging() {
-            non_reactive_idx
-        } else {
-            dock_idx.get_untracked().unwrap()
-        }
     });
+   
     let swap = create_write_slice(state,move |state,dragging_idx|{
         state.dock_list.list.swap(dragging_idx,dock_idx().unwrap());
     });
@@ -189,6 +155,11 @@ pub fn Icon(file_id:Uuid, init_left:usize, init_top:usize, icon_size:usize) -> i
     let insert = create_write_slice(state,move |state,id|{
         state.dock_list.list.insert(dock_idx().unwrap(),id);
     });
+
+    let remove = create_write_slice(state,move |state,idx:usize| {
+        state.dock_list.list.remove(idx);
+    });
+   
     let throttle_drag_over = leptos_use::use_throttle_fn_with_arg(move |ev:DragEvent| {
         let idx = dock_idx().unwrap();
         if let Some(mut data) = drag_data() {
@@ -196,51 +167,48 @@ pub fn Icon(file_id:Uuid, init_left:usize, init_top:usize, icon_size:usize) -> i
             let cursor_position = ev.client_x() - el.get_bounding_client_rect().left() as i32;
            if let Some(dragging_idx) = data.dock_idx {
             if idx == dragging_idx {
-                return ();
+                return (); 
             }
+            
             // We're hovering on the left side of the icon.
             if cursor_position < el.offset_width() / 2
             // and we're not trying to drag over the finder...
-            && idx != 0 // we won't eval next line if 0
-            && dragging_idx != idx -1 {
-                leptos::logging::log!("left swap : dragging:  {dragging_idx} drag_over : {idx}");
+            && idx != 0 
+            && dragging_idx == idx + 1 {
                 data.dock_idx = Some(idx);
+                data.offset_x -= 16.* 5.;
                 swap(dragging_idx);
                 set_drag_data(Some(data));
-                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
-            } else if dragging_idx != idx + 1 
+            } else if   idx != 0 
+                && dragging_idx == idx -1
                 && cursor_position > el.offset_width() / 2
                 && dragging_idx != idx + 1 {
-                leptos::logging::log!("right swap : dragging:  {dragging_idx} drag_over : {idx}");
                 data.dock_idx = Some(idx);
+                data.offset_x += 16.* 5.;
                 swap(dragging_idx);
                 set_drag_data(Some(data));
-                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
-            }
-           } else {
+            } 
+
+        } else {
             let contains = create_read_slice(state,move |state| state.dock_list.list.contains(&data.file_id));
             if !contains() {
                 insert(data.file_id);
                 data.dock_idx = Some(idx);
                 set_drag_data(Some(data));
-            }
+            } 
            }
         }
     }, 1000.0);
+
     view!{
         <div _ref=div_ref
-        class="absolute z-10"
-            data_init_left=move||format!("{:?}",init_left)
-            data_dock_idx=move||format!("{:?}",dock_idx())
+        class="z-10 w-[4.5rem] h-[4.5rem] p-1"
             style=move || format!(
-                "width:{}px;
-                height:{}px;
-                left:{}px;
-                top:{}px;
+                "
                 transform:translate(0px,0px);
                 transition: transform 0.25s; 
                 transition-timing-function: linear;
-                ",icon_size,icon_size,left(dock_idx().unwrap()),top())
+                ")
             
             on:dragstart=move|ev| {    
                 let document = web_sys::window().unwrap().document().unwrap();

@@ -280,11 +280,9 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
          id="topbar_btn"
         class="pl-3 pr-3 rounded-[0.25rem] "
         on:click=move |ev| {
-            leptos::logging::log!("clicked");
             if read_show.get_untracked() == show {
                 set_show(DropDownShow(None))
             } else {
-                leptos::logging::log!("show {show:?}");
                 set_show(show);
             }
             ev.stop_immediate_propagation();

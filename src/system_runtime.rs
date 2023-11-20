@@ -13,43 +13,9 @@ pub struct SystemRuntime{
     pub program_top_bar:Option<ProgramTopBarData>,
     pub dock_list:DockList,
     pub drag_data:Option<DragData>,
-    pub window_dimensions:WindowDimensions,
 }
 
-#[derive(Copy,Clone,Debug,PartialEq,Default)]
-pub struct WindowDimensions{
-    pub width:f64,
-    pub height:f64,
-    /// pixels per em
-    pub font_size:f64,
-}
-impl WindowDimensions{
-    pub fn get() -> Self {
-        cfg_if::cfg_if!{
-            if #[cfg(feature="hydrate")] {
-                Self{
-                    width:window().inner_width().unwrap().as_f64()
-                        .unwrap(),
-                    height:window().inner_height().unwrap().as_f64()
-                        .unwrap(),
-                    font_size:window().get_computed_style(&document().document_element().unwrap())
-                        .unwrap()
-                        .unwrap()
-                        .get_property_value("font-size")
-                        .unwrap()
-                        .strip_suffix("px")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap()
-                }
-            } else {
-                Self::default()
-            }
-            
-        }
-       
-    }
-}
+
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct DragData{
     pub file_id:Uuid,
@@ -144,7 +110,7 @@ pub struct ActiveProcess{
     pub minimized:bool,
 }
 impl SystemRuntime {
-    pub fn new(file_system:FileSystem,dock_list:Vec<Uuid>,window_dimensions:WindowDimensions) -> Self {
+    pub fn new(file_system:FileSystem,dock_list:Vec<Uuid>) -> Self {
         Self {
             active_proccesses:ActiveProccesses::new(),
             file_system,
@@ -153,7 +119,6 @@ impl SystemRuntime {
             program_top_bar:None,
             dock_list: DockList::new(dock_list),
             drag_data:None,
-            window_dimensions,
         }
     }
 
