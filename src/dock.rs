@@ -2,6 +2,8 @@ use std::{collections::HashSet, hash::{Hash, Hasher}, cmp::Ordering, f32::consts
 
 use web_sys::{DragEvent, MouseEvent};
 
+use crate::system_runtime::DragData;
+
 use super::*;
 /*
 Model 
@@ -112,13 +114,13 @@ pub fn ProjectDraggingIcon() -> impl IntoView {
 }
 
 #[component]
-pub fn AbyssTarp() -> impl IntoView{
+pub fn AbyssTarp() -> impl IntoView {
     let state = expect_context::<SystemState>().0;
     let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
-    let (drag_data,set_drag_data) = create_write_slice(
-        system,
+    let (drag_data,set_drag_data) = create_slice(
+        state,
+        |state|state.drag_data.clone(),
         |state,data|state.drag_data = data,
-        |state|state.drag_data.clone()
     );
 
     let remove = create_write_slice(state,move |state,idx:usize| {
@@ -130,21 +132,25 @@ pub fn AbyssTarp() -> impl IntoView{
             class=("z-[98]",move || zboost())
             on:drop=move|ev|{
                 if let Some(data) = drag_data() {
-                    remove(data.idx);
+                    if let Some(idx) = data.dock_idx {
+                        remove(idx);
+                    }
                 }
             }
             on:dragover=move|ev|{
                 ev.prevent_default();
-                let mut data = drag_data();
-                if let Some(idx) = data.dock_idx {
-                    let get_id = create_read_slice(state,move |state|state.dock_list.list.get(idx).cloned());
-                    if let Some(id) = get_id() {
-                        if id == data.file_id {
-                            data.dock_idx = None;
-                            set_drag_data(data)
+                if let Some(mut data) = drag_data() {
+                    if let Some(idx) = data.dock_idx {
+                        let get_id = create_read_slice(state,move |state|state.dock_list.list.get(idx).cloned());
+                        if let Some(id) = get_id() {
+                            if id == data.file_id {
+                                data.dock_idx = None;
+                                set_drag_data(data)
+                            }
                         }
                     }
                 }
+                
             }
             >
         </div>
@@ -191,7 +197,17 @@ pub fn Dock() -> impl IntoView{
 pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
     let system = expect_context::<SystemState>().0;
     let img_src = create_read_slice(system,move |state|state.img_src(file_id));
- 
+    let set_dragging_data = create_write_slice(system,move |state,
+        (file_id,dock_idx,offset_x,offset_y):(Uuid,Option<usize>,f64,f64)| {
+            state.drag_data = Some(DragData{
+                file_id,
+                dock_idx,
+                offset_x,
+                offset_y,
+                remove_from_dock:false,
+            });
+        }
+    );
     let (is_dragging,set_is_dragging) = create_signal(false);
    
     let (is_running,run_app) = create_slice(
@@ -224,9 +240,7 @@ pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
             let rect = el.get_bounding_client_rect();
             let offset_x = (ev.client_x() as f64 - rect.left());
             let offset_y = (ev.client_y() as f64 - rect.top());
-            ev.data_transfer().unwrap().set_data("text/plain", 
-                &serde_json::to_string(&DragTransferData{file_id,idx:Some(idx),offset_x,offset_y}).unwrap()
-            ).unwrap();
+            set_dragging_data((file_id,Some(idx),offset_x,offset_y));
             set_is_dragging(true);
         }
         on:dragend=move|ev| {
