@@ -1,4 +1,4 @@
-use crate::dock::{DockList, FileDraggingData};
+use crate::dock::{DockList};
 use crate::topbar::ProgramTopBarData;
 
 use super::*;
@@ -12,7 +12,16 @@ pub struct SystemRuntime{
     pub settings:SystemSettings,
     pub program_top_bar:Option<ProgramTopBarData>,
     pub dock_list:DockList,
-    pub file_dragging_data:FileDraggingData,
+    pub drag_data:Option<DragData>,
+}
+
+#[derive(Debug,PartialEq,Clone,Default)]
+pub struct DragData{
+    pub file_id:Uuid,
+    pub dock_idx:Option<usize>,
+    pub offset_x:f64,
+    pub offset_y:f64,
+    pub remove_from_dock:bool,
 }
 
 #[derive(Debug,PartialEq,Clone,Default)]
@@ -109,7 +118,6 @@ impl SystemRuntime {
             settings:SystemSettings::default(),
             program_top_bar:None,
             dock_list: DockList::new(dock_list),
-            file_dragging_data:FileDraggingData::default(),
         }
     }
 

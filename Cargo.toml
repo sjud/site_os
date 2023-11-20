@@ -29,6 +29,7 @@ leptos_sse = "0.2.0"
 leptos-use = "0.8.2"
 log = "0.4"
 serde = { version = "1.0.148", features = ["derive"] }
+serde_json = "1.0.108"
 tower = { version = "0.4.13", optional = true }
 uuid = {version="1.1.2",features=["serde","v4","js"]}
 tower-http = {version="0.4.0",features=["fs","set-header","compression-br","cors","auth","propagate-header"],optional = true}
@@ -67,6 +68,7 @@ site-root = "target/site"
 site-pkg-dir = "pkg"
 #Optional, Activates the tailwind build
 tailwind-input-file = "style/output.css"
+
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.

@@ -215,7 +215,7 @@ pub const DROP_DOWN_LIST_ITEM_ID: &'static str = "drop_down_list_item";
 pub struct DropDownShow(Option<usize>);
 #[component]
 pub fn TopBar() -> impl IntoView {
-    let system = expect_context::<RwSignal<SystemRuntime>>();
+    let system =expect_context::<SystemState>().0;
     let top_bar_data = create_read_slice(system,|state|state.program_top_bar.clone()
         .unwrap_or(
             ProgramTopBarData::finder()
@@ -305,7 +305,7 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
 pub struct HoverHighlight(pub bool);
 #[component]
 pub fn DropDown() -> impl IntoView {
-    let system = expect_context::<RwSignal<SystemRuntime>>();
+    let system =expect_context::<SystemState>().0;
     let div_ref = create_node_ref::<leptos::html::Div>();
     let show = expect_context::<RwSignal<DropDownShow>>().read_only();
     let set_show = expect_context::<RwSignal<DropDownShow>>().write_only();
@@ -378,7 +378,7 @@ pub fn DropDown() -> impl IntoView {
 
 #[component]
 fn DropDownListItem(top_bar_field:Rc<dyn TopBarField>) -> impl IntoView{
-    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let system: RwSignal<SystemRuntime> =expect_context::<SystemState>().0;
     let read_hover_highlight = expect_context::<RwSignal<HoverHighlight>>().read_only();
     view!{
         <div class="ml-3 mr-3 rounded-[0.25rem]" id=DROP_DOWN_LIST_ITEM_ID

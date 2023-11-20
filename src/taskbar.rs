@@ -103,7 +103,7 @@ pub struct DraggingIcon{
 
 #[component]
 pub fn ProjectDraggingIcon() -> impl IntoView {
-    let system: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let system: RwSignal<SystemRuntime> =expect_context::<SystemState>().0;
     let icon: RwSignal<Option<DraggingIcon>> = expect_context::<RwSignal<Option<DraggingIcon>>>();
     let src = create_read_slice(
         system,move |system| {
@@ -142,7 +142,7 @@ pub struct RwTaskBarMapping(pub RwSignal<HashMap::<Uuid,TaskBarRepresentation>>)
 
 #[component]
 pub fn TaskBar() -> impl IntoView {
-    let system_runtime = expect_context::<RwSignal<SystemRuntime>>();
+    let system_runtime =expect_context::<SystemState>().0;
     let task_bar_ids = create_read_slice(
         system_runtime,
         |state|state.task_bar_ids());
@@ -265,7 +265,7 @@ pub fn TaskBarItem(id:Uuid) -> impl IntoView {
 
 #[component]
 pub fn TaskBarItemButton(id:Uuid,) -> impl IntoView {
-    let system_runtime: RwSignal<SystemRuntime> = expect_context::<RwSignal<SystemRuntime>>();
+    let system_runtime: RwSignal<SystemRuntime> =expect_context::<SystemState>().0;
     let dragging_icon: RwSignal<Option<DraggingIcon>> = expect_context::<RwSignal<Option<DraggingIcon>>>();
     let img_src = create_read_slice(system_runtime,move |state|state.img_src(id));
     let (is_running,run_app) = create_slice(

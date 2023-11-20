@@ -21,7 +21,7 @@ pub struct RowColsCount{
 
 #[component]
 pub fn DesktopGrid() -> impl IntoView {
-    let system = expect_context::<RwSignal<SystemRuntime>>();
+    let system =expect_context::<SystemState>().0;
     let file_ids = create_read_slice(system,|state|
         state.file_ids_direct_children_of_path(
         PathBuf::from_str("/").unwrap())
@@ -63,7 +63,6 @@ pub fn DesktopGrid() -> impl IntoView {
                 rows: rows as u8,
                 cols: cols as u8,
             };
-            leptos::logging::log!("{:?}, height: {height} width: {width}",&row_cols_count);
 
             // the height/width not including margins and padding
             set_grid_rows_cols(row_cols_count);
@@ -78,7 +77,7 @@ pub fn DesktopGrid() -> impl IntoView {
 
 #[component]
 pub fn DesktopIcon(file_id:Uuid) -> impl IntoView {
-    let system_runtime = expect_context::<RwSignal<SystemRuntime>>();
+    let system_runtime =expect_context::<SystemState>().0;
     let img_src = create_read_slice(system_runtime,move |state|state.img_src(file_id));
     let run_app = create_write_slice(system_runtime,
         move |state,_|state.run_app(file_id,0.));

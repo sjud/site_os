@@ -4,7 +4,7 @@ use super::*;
 
 #[component]
 pub fn Folder(file_id:Uuid) -> impl IntoView{
-    let system_runtime = expect_context::<RwSignal<SystemRuntime>>();
+    let system_runtime =expect_context::<SystemState>().0;
 
     let path = create_read_slice(system_runtime, move |state| 
         state.path_from_file_id(file_id)

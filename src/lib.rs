@@ -1,6 +1,6 @@
 #![feature(lazy_cell)]
 use serde::{Serialize,Deserialize};
-use std::str::FromStr;
+use std::{str::FromStr, ops::{DerefMut, Deref}};
 use web_sys::wasm_bindgen::JsCast;
 use uuid::Uuid;
 use cfg_if::cfg_if;
@@ -165,7 +165,7 @@ pub fn OperatingSystem() -> impl IntoView {
         img_src:"/reader.png".to_string(),
         ..Default::default()
     });
-    provide_context::<RwSignal<SystemRuntime>>(create_rw_signal(SystemRuntime::new(file_system,dock_list)));
+    provide_context::<SystemState>(SystemState(create_rw_signal(SystemRuntime::new(file_system,dock_list))));
     view!{
         <topbar::TopBar/>
         <desktop::Desktop/>
@@ -174,8 +174,8 @@ pub fn OperatingSystem() -> impl IntoView {
     }
 }
 
-
-
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub struct SystemState(pub RwSignal<SystemRuntime>);
 
 #[component]
 pub fn DisableRightClick() -> impl IntoView {
