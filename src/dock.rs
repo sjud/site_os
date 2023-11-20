@@ -3,61 +3,285 @@ use std::{collections::HashSet, hash::{Hash, Hasher}, cmp::Ordering, f32::consts
 use web_sys::{DragEvent, MouseEvent};
 
 use crate::system_runtime::DragData;
-
-use super::*;
 /*
-Model 
+    Animated Dock Model
 
-A dock is a visual representation of an array of DockingSpaces
-|_|_|_|...
+    A dock is a grey bar of a given width on the bottom of the screen.
+    A dock item is an icon positioned on the grey bar such that it's never overlapping another icon.
+    A dock has width W where W is a function of the number of items in the dock list and screen width. Such that
+    each dock item will have a "reasonable" minimum/maximum size, minimum/maximum spacing, and the dock bar itself
+    will shrink to not have "too much" space such as if it has only a few icons on a wide screen.
+    A dock item has size and spacing given the width of the dock bar. All dock items have the same size and spacing.
+    To calculate the left position of a dock icon, we being with dock bar padding and add to it  the dock idx and multiple it 
+    by dock item spacing and size. 
+    This should look like a div with children rendered by flex.
+    When we drag an item, we change it's position based on mouse position. If an item is dragged off the dock,
+    we remove it from the dock list, changing the dock list len, resizing the dock bar and possibly resizing/spacing the dock items.
+    If an item is dragged over another item, depending on the idx of the dragged item and the idx of the drag over item, as well
+    as where it was dragged over on that item. The idx of that item in the dock list will change, which will change it's left transformation
+    variable which will cause it to move toward that position.
+    When drop occurs on the dockbar, the item currently be dragged will have it's position changed back to a position that aligns
+    with the other items on the dock bar and it will 'drift' back to its correct position.
+    Item dragover rules
+    If an item is directly to the left or to the right of another item, dragging that item over it's neighor's left or right (respectively)
+    sides will cause no position shifts.
+    When you drag over the opposite side, a right neighbor is dragged over the left side, an item will shift right.
 
-Each docking space "holds" onto an icon
-|x|y|z|...
+    |xxx|yyy|zzz| start
 
-When you remove an icon from in the Dock
-y
-|x|_|z|... the docking space is associated with the icon, y has idx of 1, but the docking space is hiding y's icon
-y 
+         yyy 
+    |xxx|___|zzz| item is lifted out of dock
 
-|x|z|...|_| we move far enough away, than y is in limbo it has no idx, and elements greater than y shift left
-y
+       yyy
+    |xxx|___|zzz| no change
 
+    yyy
+    |xxx|___|zzz| yyy is over left of it's left neighbor, so xxx switches indexes with it.
 
-|x|z|... the docking space is deleted
+    yyy
+    |___|xxx|zzz| xxx drifts right, as it's positon changes.
 
-|x|z|... when we stop dragging y, y is removed from limbo.
+    |yyy|xxx|zzz| When letting go of yyy icon, it will drift into the empty space, because that's it's new position.
 
-when you pickup an item and drag it
-   y
+    */
+use super::*;
+#[derive(Debug,PartialEq,Clone,Default)]
+pub struct DockList{
+    list:Vec<Uuid>,
+}
 
-|x|y|... it's added to limbo
-
-  y
-
-|x|z|_|... the docking space is added to the right 
-|x|_|z|... the elements at and including y's hover positon (where z was) are shifted to the right,
-|x|y|z|... y is added to the list of items, it's idx is z's old positon and is shown in the dock.
-
-
-when you drag an icon along the bar from one position to the other (this is remove and add without deleting/adding spaces)
-|a|b|c|d|e|
-   b
-|a|_|c|d|e| it's docking space is emptied
-     b
-|a|c|_|d|e| as you move move to the right, the elment you drag over shifts to the left and their docking space is kept empty
- b 
-|_|a|c|d|e| or if you move to the right, all elements shift right and the hovered over position's docking space is kept empty.
+impl DockList {
+    pub fn new(list:Vec<Uuid>) -> Self{
+        Self{  
+            list,
+        }
+    }
+}
 
 
-Docking Space Rule:
-There will always be N docking spaces, where N is the number of item in the list who have an idx.
+#[component]
+pub fn Dock() -> impl IntoView{
+    let state = expect_context::<SystemState>().0;
+    let width = create_read_slice(state,|state|state.window_dimensions.width * 0.80);
+    /*let max_width = create_read_slice(state,|state|{
+        state.window_dimensions.font_size * 4.5
+    });*/
+    let font_size = create_read_slice(state,|state|{
+        state.window_dimensions.font_size
+    });
+    //let icon_count = create_read_slice(state,|state|state.dock_list.list.len());
+    let icon_size = Signal::derive(move || font_size() * 4.5);
+    //let width = move || icon_size() * icon_count() as f64 + font_size() * 2.;
+    let dock_ref = create_node_ref::<leptos::html::Div>();
 
-Docking Space Icon Visibility Rule:
-If the icon id in the docking space is equal to the dragging id in the dock list then the docking
-space will not show the icon.
 
 
-*/
+    let items = create_read_slice(state,|state|{
+        state.dock_list.list.clone()
+    });
+
+    view!{
+       
+        <div 
+        _ref=dock_ref
+        class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
+        left-1/2 transform -translate-x-1/2"
+        style=move || format!("width:{}px;height:{}px;",width(),icon_size()+10.0)
+        >
+      
+        </div>
+        <For 
+        each=move || items().into_iter()
+        key=|id| *id
+        children=move |file_id| 
+            view! {
+                <Icon 
+                file_id  
+                init_left=
+                    dock_ref
+                    .get()
+                    .map(|dock|dock
+                        .dyn_ref::<web_sys::HtmlDivElement>()
+                        .unwrap()
+                        .get_bounding_client_rect()
+                        .left() + font_size()/4.0
+                    ).unwrap_or_default() as usize
+                   
+                init_top=
+                    dock_ref.get()
+                        .map(|dock|dock
+                        .dyn_ref::<web_sys::HtmlDivElement>()
+                        .unwrap()
+                        .get_bounding_client_rect()
+                        .top() - font_size()/4.0 )
+                        .unwrap_or_default() as usize
+                icon_size=icon_size() as usize/>
+                }
+        />   
+    }
+}  
+
+
+
+#[component]
+pub fn Icon(file_id:Uuid, init_left:usize, init_top:usize, icon_size:usize) -> impl IntoView {
+
+    let state = expect_context::<SystemState>().0;
+    let dock_idx: Signal<Option<usize>> = create_read_slice(state,move|state|
+        state.dock_list.list.iter().position(move |id|*id==file_id)
+    );
+    let (drag_data,set_drag_data) = create_slice(
+        state,
+        |state|state.drag_data.clone(),
+        |state,data|state.drag_data = data,
+    );
+    let img_src = create_read_slice(state,move |state|state.img_src(file_id));
+    let (is_running,run_app) = create_slice(
+        state,
+        move |state| state.is_running(file_id),
+        move |state,()| state.run_app(file_id,0.) 
+    );
+    let (is_dragging,set_is_dragging) = create_signal(false);
+    let leptos_use::UseMouseReturn {
+        x, y, ..
+    } = leptos_use::use_mouse();
+    let drag_data = create_read_slice(state,|state|state.drag_data.clone());
+    let left = move |idx| init_left + idx * icon_size;
+    let top = move || init_top;
+    let div_ref = create_node_ref::<leptos::html::Div>();
+    create_effect(move |idx|  {
+        let non_reactive_idx = idx.unwrap_or(dock_idx.get_untracked().unwrap());
+        let base = format!("width:{}px;height:{}px;left:{}px;top:{}px;",icon_size,icon_size,
+        left(non_reactive_idx),
+        top());
+        let ext = if is_dragging() {
+                format!("pointer-events: none;
+                z-index:100;
+                transform:translate({}px,{}px);",
+                x() - drag_data().unwrap().offset_x,
+                y() - drag_data().unwrap().offset_y,
+                )            
+            }  else {
+                format!("
+                transform:translate(0px,0px);
+                transition: transform 0.25s; 
+                transition-timing-function: linear;")
+        };
+        let style = base + &ext;
+        let div_ref = div_ref().unwrap();
+        
+        request_animation_frame(move ||{
+            div_ref.set_attribute(
+            "style",
+            &style
+        ).unwrap();
+        });
+        if is_dragging() {
+            non_reactive_idx
+        } else {
+            dock_idx.get_untracked().unwrap()
+        }
+    });
+    let swap = create_write_slice(state,move |state,dragging_idx|{
+        state.dock_list.list.swap(dragging_idx,dock_idx().unwrap());
+    });
+ 
+    let insert = create_write_slice(state,move |state,id|{
+        state.dock_list.list.insert(dock_idx().unwrap(),id);
+    });
+    let throttle_drag_over = leptos_use::use_throttle_fn_with_arg(move |ev:DragEvent| {
+        let idx = dock_idx().unwrap();
+        if let Some(mut data) = drag_data() {
+            let el = event_target::<web_sys::HtmlElement>(&ev);
+            let cursor_position = ev.client_x() - el.get_bounding_client_rect().left() as i32;
+           if let Some(dragging_idx) = data.dock_idx {
+            if idx == dragging_idx {
+                return ();
+            }
+            // We're hovering on the left side of the icon.
+            if cursor_position < el.offset_width() / 2
+            // and we're not trying to drag over the finder...
+            && idx != 0 // we won't eval next line if 0
+            && dragging_idx != idx -1 {
+                leptos::logging::log!("left swap : dragging:  {dragging_idx} drag_over : {idx}");
+                data.dock_idx = Some(idx);
+                swap(dragging_idx);
+                set_drag_data(Some(data));
+                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
+            } else if dragging_idx != idx + 1 
+                && cursor_position > el.offset_width() / 2
+                && dragging_idx != idx + 1 {
+                leptos::logging::log!("right swap : dragging:  {dragging_idx} drag_over : {idx}");
+                data.dock_idx = Some(idx);
+                swap(dragging_idx);
+                set_drag_data(Some(data));
+                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
+            }
+           } else {
+            let contains = create_read_slice(state,move |state| state.dock_list.list.contains(&data.file_id));
+            if !contains() {
+                insert(data.file_id);
+                data.dock_idx = Some(idx);
+                set_drag_data(Some(data));
+            }
+           }
+        }
+    }, 1000.0);
+    view!{
+        <div _ref=div_ref
+        class="absolute z-10"
+            data_init_left=move||format!("{:?}",init_left)
+            data_dock_idx=move||format!("{:?}",dock_idx())
+            style=move || format!(
+                "width:{}px;
+                height:{}px;
+                left:{}px;
+                top:{}px;
+                transform:translate(0px,0px);
+                transition: transform 0.25s; 
+                transition-timing-function: linear;
+                ",icon_size,icon_size,left(dock_idx().unwrap()),top())
+            
+            on:dragstart=move|ev| {    
+                let document = web_sys::window().unwrap().document().unwrap();
+                let transparent_image = document.create_element("img").unwrap()
+                    .dyn_into::<web_sys::HtmlImageElement>().unwrap();
+                transparent_image.set_src("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+                let data_transfer = ev.data_transfer().unwrap();
+                data_transfer.set_drag_image(&transparent_image, 0, 0);
+                let offset_x = ev.client_x() as f64;
+                let offset_y = ev.client_y() as f64;
+                set_drag_data(Some(DragData{file_id,dock_idx:dock_idx(),offset_x,offset_y}));
+                set_is_dragging(true);
+            }
+            on:dragover=move |ev| {throttle_drag_over(ev);}
+
+            on:dragend=move|ev|{
+                set_is_dragging(false);
+                set_drag_data(None);
+
+            }
+        >
+   
+        <div> //1
+        <img 
+        
+        class="rounded-md" src=img_src
+        />
+        </div>  //1
+       
+
+        <Show when=move||dock_idx().is_some() fallback=||view!{}>
+        <div 
+        class=("invisible", move || !is_running())
+        class="rounded-full bg-slate-400 h-1 w-1 ml-auto mr-auto"> 
+        </div>
+        </Show>
+        </div>
+    }
+}
+
+/* 
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct DockList{
     list:Vec<Uuid>,
@@ -126,9 +350,16 @@ pub fn AbyssTarp() -> impl IntoView {
     let remove = create_write_slice(state,move |state,idx:usize| {
         state.dock_list.list.remove(idx);
     });
-
+    let handle = window_event_listener(ev::dragover, move |ev| {
+        ev.prevent_default();
+    });
+    on_cleanup(move || handle.remove());
+    let handle = window_event_listener(ev::drop, move |ev| {
+        gloo::timers::callback::Timeout::new(100, move || set_drag_data(None)).forget();
+    });
+    on_cleanup(move || handle.remove());
     view!{
-        <div class="w-[99vw] h-[99vh] z-[-98] absolute top-0"
+        <div class="w-[99vw] h-[99vh] -z-50 absolute top-0"
             class=("z-[98]",move || zboost())
             on:drop=move|ev|{
                 if let Some(data) = drag_data() {
@@ -145,7 +376,7 @@ pub fn AbyssTarp() -> impl IntoView {
                         if let Some(id) = get_id() {
                             if id == data.file_id {
                                 data.dock_idx = None;
-                                set_drag_data(data)
+                                set_drag_data(Some(data));
                             }
                         }
                     }
@@ -165,11 +396,11 @@ pub fn Dock() -> impl IntoView{
     provide_context(ZBoostDock(create_rw_signal(false)));
     let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
     let system =expect_context::<SystemState>().0;
-    let items = create_read_slice(
+    let item_len = create_read_slice(
         system,
-        |state|state.dock_list.list.clone());
+        |state|state.dock_list.list.len());
 
-    view!{
+    view!{ 
             <ProjectDraggingIcon/>
             <div class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
             left-1/2 transform -translate-x-1/2 flex"
@@ -177,14 +408,14 @@ pub fn Dock() -> impl IntoView{
             >
             <div class="flex">
             <For 
-                each=move || items().into_iter().enumerate()
-                key=|(_,id)| *id
-                children=move |(idx,id)| {
+                each=move || (0..item_len())
+                key=|_| Uuid::new_v4()
+                children=move |i| 
                     view! {
-                        <DockingItem file_id=id idx=idx/>
+                        <DockingItem idx=i/>
                         }
-                  }
-            />    
+                  
+            />   
                 </div>
             </div>
         }
@@ -194,40 +425,73 @@ pub fn Dock() -> impl IntoView{
 
 
 #[component]
-pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
+pub fn DockingItem(idx:usize) -> impl IntoView {
     let system = expect_context::<SystemState>().0;
-    let img_src = create_read_slice(system,move |state|state.img_src(file_id));
-    let set_dragging_data = create_write_slice(system,move |state,
-        (file_id,dock_idx,offset_x,offset_y):(Uuid,Option<usize>,f64,f64)| {
-            state.drag_data = Some(DragData{
-                file_id,
-                dock_idx,
-                offset_x,
-                offset_y,
-                remove_from_dock:false,
-            });
+    let file_id = create_read_slice(system,move|state|state.dock_list.list.get(idx).cloned().unwrap());
+    let img_src = create_read_slice(system,move |state|state.img_src(file_id()));
+    let (drag_data,set_drag_data) = create_slice(system,
+        |state| state.drag_data.clone(),
+        move |state,data:DragData| {
+            state.drag_data = Some(data);
         }
     );
     let (is_dragging,set_is_dragging) = create_signal(false);
    
     let (is_running,run_app) = create_slice(
         system,
-        move |state| state.is_running(file_id),
-        move |state,()| state.run_app(file_id,0.) 
+        move |state| state.is_running(file_id()),
+        move |state,()| state.run_app(file_id(),0.) 
     );
     
     let (is_jumping,set_jumping) = create_signal(false);
     let run_app = create_write_slice(system,
-        move |state,_|state.run_app(file_id,0.));
+        move |state,_|state.run_app(file_id(),0.));
         
     let swap = create_write_slice(system,move |state,dragging_idx|{
         state.dock_list.list.swap(dragging_idx,idx);
     });
  
-    let insert = create_write_slice(system,move |state,file_id|{
-        state.dock_list.list.insert(idx,file_id);
+    let insert = create_write_slice(system,move |state,id|{
+        state.dock_list.list.insert(idx,id);
     });
- 
+    let throttle_drag_over = leptos_use::use_throttle_fn_with_arg(move |ev:DragEvent| {
+     
+        if let Some(mut data) = drag_data() {
+            let el = event_target::<web_sys::HtmlElement>(&ev);
+            let cursor_position = ev.client_x() - el.get_bounding_client_rect().left() as i32;
+           if let Some(dragging_idx) = data.dock_idx {
+            if idx == dragging_idx {
+                return ();
+            }
+            // We're hovering on the left side of the icon.
+            if cursor_position < el.offset_width() / 2
+            // and we're not trying to drag over the finder...
+            && idx != 0 // we won't eval next line if 0
+            && dragging_idx != idx -1 {
+                leptos::logging::log!("left swap : dragging:  {dragging_idx} drag_over : {idx}");
+                data.dock_idx = Some(idx);
+                swap(dragging_idx);
+                set_drag_data(data);
+                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
+            } else if dragging_idx != idx + 1 
+                && cursor_position > el.offset_width() / 2
+                && dragging_idx != idx + 1 {
+                leptos::logging::log!("right swap : dragging:  {dragging_idx} drag_over : {idx}");
+                data.dock_idx = Some(idx);
+                swap(dragging_idx);
+                set_drag_data(data);
+                leptos::logging::log!("drag_data idx : {:?}",drag_data().map(|data|data.dock_idx));
+            }
+           } else {
+            let contains = create_read_slice(system,move |state| state.dock_list.list.contains(&data.file_id));
+            if !contains() {
+                insert(data.file_id);
+                data.dock_idx = Some(idx);
+                set_drag_data(data);
+            }
+           }
+        }
+    }, 1000.0);
     view!{
         <div>
         <div 
@@ -236,11 +500,13 @@ pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
         >
         <img 
         on:dragstart=move|ev| {
+            leptos::logging::log!("drag start: {idx}");
+
             let el = event_target::<web_sys::HtmlElement>(&ev);
             let rect = el.get_bounding_client_rect();
             let offset_x = (ev.client_x() as f64 - rect.left());
             let offset_y = (ev.client_y() as f64 - rect.top());
-            set_dragging_data((file_id,Some(idx),offset_x,offset_y));
+            set_drag_data(DragData{file_id:file_id(),dock_idx:Some(idx),offset_x,offset_y,remove_from_dock:false});
             set_is_dragging(true);
         }
         on:dragend=move|ev| {
@@ -251,32 +517,7 @@ pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
                 run_app(());
                 set_jumping(true);
             }
-        on:dragover=move |ev| {
-            let mut data = DragTransferData::from_event(&ev).unwrap();
-            let el = event_target::<web_sys::HtmlElement>(&ev);
-            let cursor_position = ev.client_x() - el.get_bounding_client_rect().left() as i32;
-           if let Some(dragging_idx) = data.idx {
-            // We're hovering on the left side of the icon.
-            if cursor_position < el.offset_width() / 2
-            // and we're not trying to drag over the finder...
-            && idx != 0 // we won't eval next line if 0
-            && dragging_idx != idx -1 {
-                swap(dragging_idx);
-            } else if dragging_idx != idx + 1 {
-                swap(dragging_idx);
-            }
-           } else {
-            let contains = create_read_slice(system,move |state| state.dock_list.list.contains(&data.file_id));
-            if !contains() {
-                insert(data.file_id);
-                data.idx = Some(idx);
-                ev.data_transfer()
-                    .unwrap()
-                    .set_data("text/plain",&serde_json::to_string(&data).unwrap())
-                    .unwrap();
-            }
-           }
-        }
+        on:dragover=move |ev| {throttle_drag_over(ev);}
         class=("opacity-0",move || is_dragging())
         class="rounded-md" src=img_src
         />
@@ -287,4 +528,4 @@ pub fn DockingItem(file_id:Uuid,idx:usize) -> impl IntoView {
         </div>
         </div>
     }
-}
+}*/

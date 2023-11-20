@@ -27,7 +27,7 @@ use system_runtime::SystemRuntime;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
- 
+    
     view! {
         <Stylesheet id="leptos" href="/pkg/site_os.css"/>
         <Stylesheet id="googlefont" href="https://fonts.googleapis.com/css?family=Lunasima"/>
@@ -165,7 +165,21 @@ pub fn OperatingSystem() -> impl IntoView {
         img_src:"/reader.png".to_string(),
         ..Default::default()
     });
-    provide_context::<SystemState>(SystemState(create_rw_signal(SystemRuntime::new(file_system,dock_list))));
+
+    provide_context::<SystemState>(SystemState(create_rw_signal(SystemRuntime::new(
+        file_system,
+        dock_list,
+        WindowDimensions::get(),
+    ))));
+
+    let handle = window_event_listener(ev::resize, move |ev| {
+        let state = expect_context::<SystemState>().0;
+        let resize = create_write_slice(state,|state,()|
+            state.window_dimensions = WindowDimensions::get()
+        );
+        resize(())
+    }); 
+    on_cleanup(move || handle.remove());
     view!{
         <topbar::TopBar/>
         <desktop::Desktop/>

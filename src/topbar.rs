@@ -33,24 +33,24 @@ impl PartialEq for TopBarData {
 
 pub trait TopBarField{
     fn name(&self) -> &'static str;
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool;
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent);
-    fn on_highlight(&self,system:RwSignal<SystemRuntime>) -> View {view!{}.into_view()}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool;
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent);
+    fn on_highlight(&self,_system:RwSignal<SystemRuntime>) -> View {view!{}.into_view()}
 }
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderAbout;
 impl TopBarField for FinderAbout{
     fn name(&self,) -> &'static str {"About"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderPreferences;
 impl TopBarField for FinderPreferences{
     fn name(&self,) -> &'static str {"Preferences"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 
 
@@ -58,108 +58,108 @@ impl TopBarField for FinderPreferences{
 pub struct LogoAboutSiteOs;
 impl TopBarField for LogoAboutSiteOs {
     fn name(&self,) -> &'static str {"About site_os"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct LogoSystemPreferences;
 impl TopBarField for LogoSystemPreferences {
     fn name(&self,) -> &'static str {"System Preferences"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderFileNewFolder;
 impl TopBarField for FinderFileNewFolder {
     fn name(&self,) -> &'static str {"New Folder"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderFileRename;
 impl TopBarField for FinderFileRename {
     fn name(&self,) -> &'static str {"Rename"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditUndo;
 impl TopBarField for FinderEditUndo {
     fn name(&self,) -> &'static str {"Undo"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditRedo;
 impl TopBarField for FinderEditRedo {
     fn name(&self,) -> &'static str {"Redo"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditCut;
 impl TopBarField for FinderEditCut {
     fn name(&self,) -> &'static str {"Cut"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditCopy;
 impl TopBarField for FinderEditCopy {
     fn name(&self,) -> &'static str {"Copy"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditPaste;
 impl TopBarField for FinderEditPaste {
     fn name(&self,) -> &'static str {"Paste"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderEditShowClipboard;
 impl TopBarField for FinderEditShowClipboard {
     fn name(&self,) -> &'static str {"Show Clipboard"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderViewAsColumns;
 impl TopBarField for FinderViewAsColumns {
     fn name(&self,) -> &'static str {"As Columns"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderViewAsIcons;
 impl TopBarField for FinderViewAsIcons{
     fn name(&self,) -> &'static str {"As Icons"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderViewAsList;
 impl TopBarField for FinderViewAsList {
     fn name(&self,) -> &'static str {"As List"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderViewAsGallery;
 impl TopBarField for FinderViewAsGallery {
     fn name(&self,) -> &'static str {"As Gallery"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
 }
 #[derive(Clone,Debug,PartialEq)]
 pub struct FinderViewAsSortBy;
 impl TopBarField for FinderViewAsSortBy {
     fn name(&self,) -> &'static str {"As SortBy"}
-    fn available(&self,system:ReadSignal<SystemRuntime>) -> bool {true}
-    fn on_click(&self,system:RwSignal<SystemRuntime>,ev:MouseEvent) {}
-    fn on_highlight(&self,system:RwSignal<SystemRuntime>) -> View{
+    fn available(&self,_system:ReadSignal<SystemRuntime>) -> bool {true}
+    fn on_click(&self,_system:RwSignal<SystemRuntime>,_ev:MouseEvent) {}
+    fn on_highlight(&self,_system:RwSignal<SystemRuntime>) -> View{
         view!{
             // Make Drop down more general and add it here.
         }.into_view()
@@ -280,9 +280,11 @@ fn DropDownButton(children:Children,show:DropDownShow) -> impl IntoView{
          id="topbar_btn"
         class="pl-3 pr-3 rounded-[0.25rem] "
         on:click=move |ev| {
+            leptos::logging::log!("clicked");
             if read_show.get_untracked() == show {
                 set_show(DropDownShow(None))
             } else {
+                leptos::logging::log!("show {show:?}");
                 set_show(show);
             }
             ev.stop_immediate_propagation();
