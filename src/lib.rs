@@ -174,7 +174,7 @@ pub fn OperatingSystem() -> impl IntoView {
   
     view!{
         <topbar::TopBar/>
-        <desktop::Desktop/>
+       // <desktop::Desktop/>
         <active_procceses::ActiveProcesses/>
         <dock::Dock/>
     }

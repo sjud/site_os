@@ -4,7 +4,7 @@ use crate::topbar::ProgramTopBarData;
 use super::*;
 use std::collections::HashMap;
 use std::str::FromStr;
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Clone,PartialEq)]
 pub struct SystemRuntime{
     pub active_proccesses:ActiveProccesses,
     pub file_system:FileSystem,
@@ -18,7 +18,7 @@ pub struct SystemRuntime{
 
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct DragData{
-    pub file_id:Uuid,
+    pub dragging_id:Uuid,
     pub dock_idx:Option<usize>,
     pub offset_x:f64,
     pub offset_y:f64,
