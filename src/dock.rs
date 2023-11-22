@@ -77,6 +77,7 @@ pub struct DockList{
     msg_set:RwSignal<HashSet<DockMsg>>,
     queue:VecDeque<DockMsg>,
     icon_elements:HashMap<Uuid,leptos::html::HtmlElement<leptos::html::Div>>,
+    left_pos:HashMap<usize,f64>,
     limbo_data:LimboData,
 }
 
@@ -122,6 +123,7 @@ impl DockList {
             queue:VecDeque::new(),
             limbo_data:LimboData::new(),
             icon_elements:HashMap::new(),
+            left_pos:HashMap::new(),
         }
     }
 
@@ -154,15 +156,10 @@ impl DockList {
     pub fn handle_message(&mut self,drag_data:DragData) -> Option<Option<DragData>> {
         if let Some(msg) = self.pop_msg() {
             let mut data = drag_data.clone();
-            let update_mouse_pos = |dragging_id:Uuid,data:&mut DragData| {
-                    let el = self.icon_elements.get(&dragging_id).unwrap();
-                    let rect = (*el).get_bounding_client_rect();
-                    let left = rect.left();
-                    let top = rect.top();
+            let update_mouse_pos = |new_idx:usize,data:&mut DragData| {
+                    let left = self.left_pos.get(&new_idx).unwrap();
                     let mouse_pos_x = left + data.offset_x;
-                    let mouse_pos_y = top + data.offset_y;
                     data.mouse_pos_x = mouse_pos_x;
-                    data.mouse_pos_y = mouse_pos_y;
             };
             match msg {
                 DockMsg::ShiftLeft(MsgInner{
@@ -176,7 +173,7 @@ impl DockList {
                         .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     data.dock_idx = Some(drag_over_idx);
                     self.list.swap(dragging_idx,drag_over_idx);
-                    update_mouse_pos(dragging_id,&mut data);
+                    update_mouse_pos(drag_over_idx,&mut data);
                     return Some(Some(data));
                 },
                 DockMsg::ShiftRight(MsgInner{
@@ -189,20 +186,19 @@ impl DockList {
                         .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     data.dock_idx = Some(drag_over_idx);
                     self.list.swap(dragging_idx,drag_over_idx);
-                    update_mouse_pos(dragging_id,&mut data);
-
+                    update_mouse_pos(drag_over_idx,&mut data);
                     return Some(Some(data));
                 },
                 DockMsg::InsertLeft(MsgInner{
                     dragging_id,
                     drag_over_id,
                 }) => {
+
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
                         .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     data.dock_idx = Some(drag_over_idx);
                     self.list.insert(drag_over_idx,dragging_id);
-                    update_mouse_pos(dragging_id,&mut data);
-
+                    update_mouse_pos(drag_over_idx,&mut data);
                     return Some(Some(data));
                 }
                 DockMsg::InsertRight(MsgInner{
@@ -212,15 +208,17 @@ impl DockList {
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
                     .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     if self.list.len() ==  drag_over_idx + 1 {
-                        self.list.push(dragging_id)
+                        self.list.push(dragging_id);
+                        update_mouse_pos(self.list.len()-1,&mut data);
+                        data.dock_idx = Some(self.list.len()-1);
+
                     } else if self.list.len() > drag_over_idx + 1 {
                         self.list.insert(drag_over_idx + 1,dragging_id);
+                        update_mouse_pos(drag_over_idx+1,&mut data);
+                        data.dock_idx = Some(drag_over_idx+1);
                     } else {
                         panic!("heyo! list length less than idx + 1 ???")
                     }
-                    data.dock_idx = Some(drag_over_idx+1);
-                    update_mouse_pos(dragging_id,&mut data);
-
                     return Some(Some(data));
 
                 },
@@ -268,13 +266,16 @@ pub fn Dock() -> impl IntoView {
             state.drag_data = drag_data;
         }
     });
+
     provide_context(ZBoostDock(create_rw_signal(false)));
     let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
     create_effect(move |_| {
         if !messages().is_empty() {
             handle_msg(());
         }
-        leptos::logging::log!("{:?}",items());
+   
+        //
+        //leptos::logging::log!("{:?}",items());
     });
 
     view!{
@@ -333,7 +334,6 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     create_effect(move |_| {
         if let Some(div) = div_ref() {
             insert_map(div);
-            leptos::logging::log!("inserted {file_id}");
         }
     });
     let remove_map =create_write_slice(state,move|state,()|{state.dock_list.icon_elements.remove(&file_id);});
@@ -383,6 +383,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
             let self_is_leftmost = this_idx == 0;
             let dragging_elem_is_left_neighbor = data.dock_idx.unwrap_or(usize::MAX-1) + 1 == this_idx;
             let dragging_elem_is_right_neighbor = data.dock_idx.unwrap_or(usize::MAX) == this_idx+1;
+            let is_removed = data.dock_idx.is_none();
             if dragging_self  {
                 return ();
             } else if !self_is_leftmost &&
@@ -393,21 +394,24 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
                 cursor_on_right &&
                 dragging_elem_is_left_neighbor {
                     push_msg(DockMsg::ShiftLeft(MsgInner{drag_over_id,dragging_id}))
-            } else if cursor_on_left && !self_is_leftmost {
+            } else if cursor_on_left && !self_is_leftmost && is_removed {
                 push_msg(DockMsg::InsertLeft(MsgInner{drag_over_id,dragging_id}))
-            } else if cursor_on_right {
+            } else if cursor_on_right && is_removed {
                 push_msg(DockMsg::InsertRight(MsgInner{drag_over_id,dragging_id}))
-            } else {
-                leptos::logging::log!("Unhandled icon drag over?");
+            } else { 
+                // Do nothing.
             }
-          
         }
     };
-
-
+    let left_map = create_write_slice(state,|state,(idx,left)|{state.dock_list.left_pos.insert(idx,left);});
+    create_effect(move |_| {
+        let rect = (*div_ref.get_untracked().unwrap()).get_bounding_client_rect();
+        let left = rect.left();
+        left_map((this_idx.get_untracked().unwrap(),left));
+    });
     view!{
         <div _ref=div_ref
-        class="z-10 w-[4.5rem] h-[4.5rem] p-1"
+        class="z-10 w-[4.5rem] h-[4.5rem]"
             style=move || format!(
                 "
                 transform:translate(0px,0px);
@@ -429,7 +433,6 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
                 let div_y = div_rect.top();
                 let offset_x = mouse_pos_x - div_x;
                 let offset_y = mouse_pos_y - div_y;
-
                 set_drag_data(Some(DragData{dragging_id:file_id,dock_idx:this_idx(),mouse_pos_x,mouse_pos_y,offset_x,offset_y}));
                 set_is_dragging(true);
             }
