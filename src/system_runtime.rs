@@ -12,19 +12,8 @@ pub struct SystemRuntime{
     pub settings:SystemSettings,
     pub program_top_bar:Option<ProgramTopBarData>,
     pub dock_list:DockList,
-    pub drag_data:Option<DragData>,
 }
 
-
-#[derive(Debug,PartialEq,Clone,Default)]
-pub struct DragData{
-    pub dragging_id:Uuid,
-    pub dock_idx:Option<usize>,
-    pub offset_x:f64,
-    pub offset_y:f64,
-    pub mouse_pos_x:f64,
-    pub mouse_pos_y:f64,
-}
 
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct SystemSettings{
@@ -120,7 +109,6 @@ impl SystemRuntime {
             settings:SystemSettings::default(),
             program_top_bar:None,
             dock_list: DockList::new(dock_list),
-            drag_data:None,
         }
     }
 
