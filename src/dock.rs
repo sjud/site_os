@@ -81,7 +81,7 @@ pub struct DockDimensions{
     left:f64,
     top:f64
 }
-#[derive(Debug,PartialEq,Clone,Default)]
+#[derive(Debug,PartialEq,Clone,Default,Copy)]
 pub struct DragData{
     dragging_id:Uuid,
     dock_idx:usize,
@@ -169,7 +169,9 @@ impl DockList {
             let mut data = self.drag_data.clone().unwrap();
             let update_mouse_pos = |this:&Self,new_idx:usize,data:&mut DragData| {
                 if let Some(IconDimensions{left,..}) = this.dimensions_map.get(&new_idx).cloned() {
+                    
                     let mouse_pos_x = left + data.offset_x;
+                    leptos::logging::log!("old mouse_pos_x: {}\n new mouse_pos_x : {}",data.mouse_pos_x,mouse_pos_x);
                     data.mouse_pos_x = mouse_pos_x;
                 }                    
             };
@@ -177,7 +179,7 @@ impl DockList {
             let dragging_idx = data.dock_idx;
             match msg {
                 DragOverMsg::ShiftLeft(drag_over_id) => {
-                    leptos::logging::log!("shift left");
+
                     let drag_over_idx = self.list_idx(drag_over_id).unwrap();
                     data.dock_idx = drag_over_idx;
                     self.list.swap(dragging_idx,drag_over_idx);
@@ -185,7 +187,7 @@ impl DockList {
                     self.drag_data = Some(data);
                 },
                 DragOverMsg::ShiftRight(drag_over_id) => {
-                    leptos::logging::log!("shift right");
+
                     let drag_over_idx = self.list_idx(drag_over_id).unwrap();
                     data.dock_idx = drag_over_idx;
                     self.list.swap(dragging_idx,drag_over_idx);
@@ -193,7 +195,7 @@ impl DockList {
                     self.drag_data = Some(data);
                 },
                 DragOverMsg::InsertLeft(drag_over_id) => {
-                    leptos::logging::log!("insert left");
+
                     let drag_over_idx = self.list_idx(drag_over_id).unwrap();
                     self.insert(drag_over_idx,dragging_id);                
                     data.in_limbo = false;
@@ -202,7 +204,7 @@ impl DockList {
                     self.drag_data = Some(data);
                 }
                 DragOverMsg::InsertRight(drag_over_id) => {
-                    leptos::logging::log!("insert right");
+
                     let drag_over_idx = self.list_idx(drag_over_id).unwrap();
                     if self.list.len() ==  drag_over_idx + 1 {
                         update_mouse_pos(&self,self.list.len()-1,&mut data);
@@ -217,7 +219,7 @@ impl DockList {
                     self.drag_data = Some(data);
                 },
                 DragOverMsg::DragOut => {
-                    leptos::logging::log!("drag out");
+
                     let IconDimensions{left,top,width} = self.dimensions_map.get(&dragging_idx).cloned().unwrap();
                     data.left = left-width/2.;
                     data.top = top;
@@ -225,11 +227,14 @@ impl DockList {
                     self.drag_data = Some(data);
                 }
                 DragOverMsg::Drop => {
-                    self.list.remove(dragging_idx);
+                    self.remove(dragging_id);
                     self.drag_data = None;
                 }
             
             }
+            leptos::logging::log!("msg:{msg:?}
+                data:{data:?}
+            ")  
         } 
     }
     
@@ -260,9 +265,6 @@ pub fn Dock() -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
-        leptos::logging::log!("{:?}",items());
-    });
 
     let div_ref = create_node_ref::<Div>();
     
@@ -334,9 +336,13 @@ pub fn AbyssTarp() -> impl IntoView {
 pub fn Icon(file_id:Uuid) -> impl IntoView {
     let state = expect_context::<SystemState>().0;
     
-    let this_idx: Signal<usize> = create_read_slice(state,move|state|
-        state.dock_list.list.iter().position(move |id|*id==file_id).unwrap()
-    );
+    let this_idx: Signal<usize> = create_read_slice(state,move|state|{
+        let idx = state.dock_list.list.iter().position(move |id|*id==file_id);
+        if idx.is_none(){
+            leptos::logging::log!("{file_id} has no idx");
+        }
+        idx.unwrap_or_default()
+    });
     let (drag_data,set_drag_data) = create_slice(
         state,
         |state|state.dock_list.drag_data.clone(),
@@ -366,12 +372,11 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     let pos_map = create_write_slice(state,|state,(idx,icon_dimensions)|{state.dock_list.dimensions_map.insert(idx,icon_dimensions);});
     
     create_effect(move |_| {
-        this_idx.track();
         let rect = (*div_ref().unwrap()).get_bounding_client_rect();
         let left = rect.left();
         let top = rect.top();
         let width = rect.width();
-        pos_map((this_idx.get_untracked(),IconDimensions{left,top,width}));
+        pos_map((this_idx(),IconDimensions{left,top,width}));
     });
 
     let (is_jumping,set_jumping) = create_signal(false);
@@ -402,7 +407,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
             };
             let limbo_style = 
             if drag_data().map(|data|data.in_limbo && data.dragging_id == file_id).unwrap_or_default() {
-                let DragData{left:limbo_left,top:limbo_top,dragging_id,..} = drag_data().unwrap();
+                let DragData{left:limbo_left,top:limbo_top,..} = drag_data().unwrap();
                 let DockDimensions{left:dock_left,top:dock_top} = dock_dimensions();
                 let left = limbo_left - dock_left;
                 let top = limbo_top - dock_top;
@@ -437,8 +442,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
                 let top = div_rect.top();
                 let offset_x = mouse_pos_x - left;
                 let offset_y = mouse_pos_y - top;
-
-                set_drag_data(Some(DragData{dragging_id:file_id,dock_idx:this_idx(),
+                let drag_data = DragData{dragging_id:file_id,dock_idx:this_idx(),
                     mouse_pos_x,
                     mouse_pos_y,
                     offset_x,
@@ -446,7 +450,9 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
                     left,
                     top,
                     in_limbo:false,
-                }));
+                };
+                leptos::logging::log!("id:{file_id} drag_start : {drag_data:?}");
+                set_drag_data(Some(drag_data));
                 set_is_dragging(true);
             }
 
