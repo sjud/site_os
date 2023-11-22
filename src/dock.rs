@@ -63,7 +63,7 @@ pub enum DockMsg{
     ShiftRight(MsgInner),
     InsertLeft(MsgInner),
     InsertRight(MsgInner),
-    Remove(Uuid),
+    DragOut(Uuid),
     Drop,
 }
 impl Default for DockMsg{
@@ -76,44 +76,32 @@ pub struct DockList{
     list:Vec<Uuid>,
     msg_set:RwSignal<HashSet<DockMsg>>,
     queue:VecDeque<DockMsg>,
-    icon_elements:HashMap<Uuid,leptos::html::HtmlElement<leptos::html::Div>>,
-    left_pos:HashMap<usize,f64>,
-    limbo_data:LimboData,
+    dimensions_map:HashMap<usize,IconDimensions>,
+    limbo_data:Option<LimboData>,
+    dock_list_left_top:(f64,f64),
 }
+#[derive(Clone,Default,PartialEq,Copy)]
+pub struct IconDimensions{
+    left:f64,
+    top:f64,
+    width:f64,
+}
+#[derive(Clone,Default,PartialEq,Copy)]
+pub struct LimboData{
+    file_id:Uuid,
+    left:f64,
+    top:f64,
+}
+
 
 impl PartialEq for DockList {
     fn eq(&self, other: &Self) -> bool {
-        self.list == other.list && self.msg_set == other.msg_set && self.queue == other.queue  && self.limbo_data == other.limbo_data
-    }
-}
-#[derive(PartialEq,Clone,Default)]
-pub struct LimboData{
-    file_id:Option<Uuid>,
-    limbo_ref:LimboRef,
-    limbo_child:Option<web_sys::Node>,
-}
-impl LimboData{
-    pub fn new() -> Self {
-        Self {           
-             limbo_ref:LimboRef(create_node_ref::<leptos::html::Div>()),
-             ..Default::default()
-        }
+        self.list == other.list && self.msg_set == other.msg_set && self.queue == other.queue 
     }
 }
 
-#[derive(Clone,Default)]
-pub struct LimboRef(NodeRef<leptos::html::Div>);
-impl PartialEq for LimboRef{
-    fn eq(&self, other: &Self) -> bool {
-        true
-    }
-}
-impl std::fmt::Debug for LimboData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LimboRef")
-         .finish()
-    }
-}
+
+
 
 impl DockList {
     pub fn new(list:Vec<Uuid>) -> Self{
@@ -121,21 +109,13 @@ impl DockList {
             list,
             msg_set:create_rw_signal(HashSet::new()),
             queue:VecDeque::new(),
-            limbo_data:LimboData::new(),
-            icon_elements:HashMap::new(),
-            left_pos:HashMap::new(),
+            limbo_data:None,
+            dimensions_map:HashMap::new(),
+            dock_list_left_top:(0.0,0.0),
         }
     }
 
-    pub fn put_limbo(&mut self,icon:HtmlElement<leptos::html::Div>,file_id:Uuid) {
-        (*self.limbo_data.limbo_ref.0.get().unwrap())
-            .append_child(&web_sys::Node::from((&*icon).clone())).unwrap();
-        self.limbo_data.file_id=Some(file_id);
-        self.list.iter().position(|id|*id==file_id).map(|idx|self.list.remove(idx));       
-    }
-    pub fn remove_limbo(&mut self) {
-        self.limbo_data = LimboData::new();
-    }
+
     pub fn push_msg(&mut self,msg:DockMsg) {
         if !self.msg_set.read_only()().contains(&msg) {
             self.queue.push_back(msg);
@@ -157,16 +137,17 @@ impl DockList {
         if let Some(msg) = self.pop_msg() {
             let mut data = drag_data.clone();
             let update_mouse_pos = |new_idx:usize,data:&mut DragData| {
-                    let left = self.left_pos.get(&new_idx).unwrap();
+                if let Some(IconDimensions{left,..}) = self.dimensions_map.get(&new_idx).cloned() {
                     let mouse_pos_x = left + data.offset_x;
                     data.mouse_pos_x = mouse_pos_x;
+                }                    
             };
             match msg {
                 DockMsg::ShiftLeft(MsgInner{
                     dragging_id,
                     drag_over_id,
                 }) => {
-                    
+                    leptos::logging::log!("shift left");
                     let dragging_idx = self.list.iter().position(|id|*id==dragging_id)
                         .expect("Shift left expects the dragging item is in the list at the moment of the message being handled.");
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
@@ -180,6 +161,7 @@ impl DockList {
                     dragging_id,
                     drag_over_id,
                 }) => {
+                    leptos::logging::log!("shift right");
                     let dragging_idx = self.list.iter().position(|id|*id==dragging_id)
                         .expect("Shift left expects the dragging item is in the list at the moment of the message being handled.");
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
@@ -193,45 +175,62 @@ impl DockList {
                     dragging_id,
                     drag_over_id,
                 }) => {
-
+                    // TODO insert is causing bugs in following shifts.
+                    leptos::logging::log!("insert left");
+                    let dragging_idx = self.list.iter().position(|id|*id==dragging_id)
+                        .expect("Shift left expects the dragging item is in the list at the moment of the message being handled.");
+                  
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
                         .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     data.dock_idx = Some(drag_over_idx);
-                    self.list.insert(drag_over_idx,dragging_id);
-                    update_mouse_pos(drag_over_idx,&mut data);
+                   // self.list.insert(drag_over_idx,dragging_id);
+                    update_mouse_pos(dragging_idx,&mut data);
+                    self.limbo_data = None;
                     return Some(Some(data));
                 }
                 DockMsg::InsertRight(MsgInner{
                     dragging_id,
                     drag_over_id,
                 }) => {
+                    leptos::logging::log!("insert right");
                     let drag_over_idx = self.list.iter().position(|id|*id==drag_over_id)
                     .expect("Shift left expects the drag over item  in the list at the moment of the message being handled.");
                     if self.list.len() ==  drag_over_idx + 1 {
-                        self.list.push(dragging_id);
+                       // self.list.push(dragging_id);
                         update_mouse_pos(self.list.len()-1,&mut data);
                         data.dock_idx = Some(self.list.len()-1);
 
                     } else if self.list.len() > drag_over_idx + 1 {
-                        self.list.insert(drag_over_idx + 1,dragging_id);
+                       // self.list.insert(drag_over_idx + 1,dragging_id);
                         update_mouse_pos(drag_over_idx+1,&mut data);
                         data.dock_idx = Some(drag_over_idx+1);
                     } else {
                         panic!("heyo! list length less than idx + 1 ???")
                     }
+                    self.limbo_data = None;
                     return Some(Some(data));
 
                 },
-                DockMsg::Remove(file_id) => {
-                 /*let icon = self.icon_elements.get(&file_id).cloned().unwrap();
-                   data.dock_idx = None;
-                   self.put_limbo(icon, file_id);*/
-                   return Some(Some(data));
-                },
+                DockMsg::DragOut(dragging_id) => {
+                    leptos::logging::log!("drag out");
+
+                    let dragging_idx = self.list.iter().position(|id|*id==dragging_id)
+                    .expect("Shift left expects the dragging item is in the list at the moment of the message being handled.");
+                    leptos::logging::log!("dragging_idx:{dragging_idx}");
+                    let IconDimensions{left,top,width} = self.dimensions_map.get(&dragging_idx).cloned().unwrap();
+                    self.limbo_data = Some(LimboData{file_id:dragging_id,left:left-width/2.,top});
+                    return Some(Some(data));
+                }
                 DockMsg::Drop => {
-                    self.remove_limbo();
+                    if let Some(limbo_data) = self.limbo_data {
+                        let dragging_idx = self.list.iter().position(|id: &Uuid|*id==limbo_data.file_id)
+                    .expect("Shift left expects the dragging item is in the list at the moment of the message being handled.");
+                        self.list.remove(dragging_idx);
+                        self.limbo_data = None;
+                    }
                     return Some(None);
                 }
+            
             }
         } else {
             None
@@ -240,53 +239,48 @@ impl DockList {
     
 }
 
-//when an icon moves into limbo, put it here
-#[component]
-pub fn LimboIcon() -> impl IntoView{
-    let state = expect_context::<SystemState>().0;
-    let div_ref = create_node_ref::<leptos::html::Div>();
-    let set_ref = create_write_slice(state,|state,div_ref|state.dock_list.limbo_data.limbo_ref=LimboRef(div_ref));
-    view!{
-        <div _ref=div_ref>
-        {set_ref(div_ref);}
-        </div>
-    }
-}
+
+
 
 #[component]
 pub fn Dock() -> impl IntoView {
     let state = expect_context::<SystemState>().0;
+    provide_context(ZBoostDock(create_rw_signal(false)));
+    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
+
     let items = create_read_slice(state,|state|{
         state.dock_list.list.clone()
     });
     let messages = create_read_slice(state,|state|state.dock_list.queue.clone());
-    let handle_msg = create_write_slice(state,move |state,()|{
-        let drag_data = state.drag_data.clone();
-        if let Some(drag_data) = state.dock_list.handle_message(drag_data.unwrap()) {
+    let handle_msg = create_write_slice(state,move |state,()|{      
+        if let Some(drag_data) = state.drag_data.clone().and_then(|drag_data|
+            state.dock_list.handle_message(drag_data)) {
             state.drag_data = drag_data;
         }
     });
-
-    provide_context(ZBoostDock(create_rw_signal(false)));
-    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
+    let dimensions_map = create_read_slice(state,|state|state.dock_list.dimensions_map.clone());
     create_effect(move |_| {
         if !messages().is_empty() {
             handle_msg(());
         }
-   
-        //
-        //leptos::logging::log!("{:?}",items());
+       });
+    let div_ref = create_node_ref::<Div>();
+    let is_limbo = create_read_slice(state,|state|state.dock_list.limbo_data.is_some());
+    let set_pos = create_write_slice(state,|state,left_top|{state.dock_list.dock_list_left_top = left_top;});
+    create_effect(move |_| {
+        let rect = (*div_ref().unwrap()).get_bounding_client_rect();
+        let left_top = (rect.left(), rect.top());
+        set_pos(left_top);
     });
 
     view!{
+        <div>
         <AbyssTarp/>
-        <div
-        class=("z-[99]",move || zboost())
-        >
-        <LimboIcon/>
         <div 
+        _ref = div_ref
         class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
         left-1/2 transform -translate-x-1/2 height-20 flex"
+        class=("z-[99]",move || zboost())
         >
         
         <For 
@@ -302,7 +296,42 @@ pub fn Dock() -> impl IntoView {
     }
 }  
 
-
+#[component]
+pub fn AbyssTarp() -> impl IntoView {
+    let state = expect_context::<SystemState>().0;
+    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
+    let (drag_data,set_drag_data) = create_slice(
+        state,
+        |state|state.drag_data.clone(),
+        |state,data|state.drag_data = data,
+    );
+    let push_msg = create_write_slice(state,|state,msg|state.dock_list.push_msg(msg));
+    let handle = window_event_listener(ev::dragover, move |ev| {
+        ev.prevent_default();
+    });
+    on_cleanup(move || handle.remove());
+    let handle = window_event_listener(ev::drop, move |ev| {
+       // gloo::timers::callback::Timeout::new(100, move || set_drag_data(None)).forget();
+    });
+    on_cleanup(move || handle.remove());
+    let limbo_id = create_read_slice(state,|state|state.dock_list.limbo_data.map(|data|data.file_id).unwrap_or_default());
+    view!{
+        <div class="w-[99vw] h-[99vh] -z-50 absolute top-0"
+            class=("z-[98]",move || zboost())
+            on:drop=move|ev| push_msg(DockMsg::Drop)
+            
+            on:dragover=move |ev| {
+                ev.prevent_default();
+                if let (Some(dragging_id),limbo_id) = (drag_data().map(|data|data.dragging_id),limbo_id()) {
+                    if limbo_id != dragging_id {
+                        push_msg(DockMsg::DragOut(dragging_id));
+                    }
+                }
+            }
+            >
+        </div>
+    }
+}
 
 #[component]
 pub fn Icon(file_id:Uuid) -> impl IntoView {
@@ -328,18 +357,31 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     let drag_data = create_read_slice(state,|state|state.drag_data.clone());
     let div_ref = create_node_ref::<leptos::html::Div>();
 
-    let insert_map = create_write_slice(state,move|state,div_ref:HtmlElement<Div>|{
-        state.dock_list.icon_elements.insert(file_id,div_ref);}
+    
+    let limbo_data = create_read_slice(state,|state|
+        state.dock_list.limbo_data.clone() 
     );
-    create_effect(move |_| {
-        if let Some(div) = div_ref() {
-            insert_map(div);
-        }
-    });
-    let remove_map =create_write_slice(state,move|state,()|{state.dock_list.icon_elements.remove(&file_id);});
-    on_cleanup(move || remove_map(()));
+    let dock_list_left_top = create_read_slice(state,|state|state.dock_list.dock_list_left_top);
+  
     let push_msg = create_write_slice(state,|state,msg|state.dock_list.push_msg(msg));
     create_effect(move |idx|  {
+        let limbo_style = if let Some(LimboData{
+                left: limbo_left,
+                top: limbo_top,
+                file_id:limbo_id,
+        }) = limbo_data() {
+            let (dock_left,dock_top) = dock_list_left_top();
+            let left = limbo_left - dock_left;
+            let top = limbo_top - dock_top;
+            
+          
+            if limbo_id == file_id {
+                format!("
+                position:absolute;
+                left:{left}px;
+                top:{top}px;")
+            } else {"".to_string()}
+        } else {"".to_string()};
         let style = 
             if is_dragging() {
                 if let Some(drag_data) = drag_data() {
@@ -359,7 +401,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
             )
         };
         let div_ref = div_ref.get_untracked().unwrap();
-        
+        let style = style + &limbo_style;
         request_animation_frame(move ||{
             div_ref.set_attribute(
             "style",
@@ -383,7 +425,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
             let self_is_leftmost = this_idx == 0;
             let dragging_elem_is_left_neighbor = data.dock_idx.unwrap_or(usize::MAX-1) + 1 == this_idx;
             let dragging_elem_is_right_neighbor = data.dock_idx.unwrap_or(usize::MAX) == this_idx+1;
-            let is_removed = data.dock_idx.is_none();
+            let dragging_is_in_limbo = limbo_data().map(|data|data.file_id==dragging_id).unwrap_or_default();
             if dragging_self  {
                 return ();
             } else if !self_is_leftmost &&
@@ -394,26 +436,29 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
                 cursor_on_right &&
                 dragging_elem_is_left_neighbor {
                     push_msg(DockMsg::ShiftLeft(MsgInner{drag_over_id,dragging_id}))
-            } else if cursor_on_left && !self_is_leftmost && is_removed {
+            } else if cursor_on_left && !self_is_leftmost && dragging_is_in_limbo {
                 push_msg(DockMsg::InsertLeft(MsgInner{drag_over_id,dragging_id}))
-            } else if cursor_on_right && is_removed {
+            } else if cursor_on_right && dragging_is_in_limbo {
                 push_msg(DockMsg::InsertRight(MsgInner{drag_over_id,dragging_id}))
             } else { 
                 // Do nothing.
             }
         }
     };
-    let left_map = create_write_slice(state,|state,(idx,left)|{state.dock_list.left_pos.insert(idx,left);});
+    let pos_map = create_write_slice(state,|state,(idx,icon_dimensions)|{state.dock_list.dimensions_map.insert(idx,icon_dimensions);});
     create_effect(move |_| {
-        let rect = (*div_ref.get_untracked().unwrap()).get_bounding_client_rect();
+        let rect = (*div_ref().unwrap()).get_bounding_client_rect();
         let left = rect.left();
-        left_map((this_idx.get_untracked().unwrap(),left));
+        let top = rect.top();
+        let width = rect.width();
+        pos_map((this_idx.get_untracked().unwrap(),IconDimensions{left,top,width}));
     });
     view!{
         <div _ref=div_ref
         class="z-10 w-[4.5rem] h-[4.5rem]"
             style=move || format!(
                 "
+                position:static;
                 transform:translate(0px,0px);
                 transition: transform 0.25s; 
                 transition-timing-function: linear;
@@ -422,10 +467,14 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
             on:dragstart=move|ev| {    
                 let document = web_sys::window().unwrap().document().unwrap();
                 let transparent_image = document.create_element("img").unwrap()
-                    .dyn_into::<web_sys::HtmlImageElement>().unwrap();
+                .dyn_into::<web_sys::HtmlImageElement>().unwrap();
                 transparent_image.set_src("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
                 let data_transfer = ev.data_transfer().unwrap();
                 data_transfer.set_drag_image(&transparent_image, 0, 0);
+                if this_idx() == Some(0) {
+                    return ();
+                }
+               
                 let mouse_pos_x = ev.client_x() as f64;
                 let mouse_pos_y = ev.client_y() as f64;
                 let div_rect = event_target::<web_sys::HtmlDivElement>(&ev).get_bounding_client_rect();
@@ -463,39 +512,10 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     }
 }
 
-#[component]
-pub fn AbyssTarp() -> impl IntoView {
-    let state = expect_context::<SystemState>().0;
-    let zboost: RwSignal<bool> = expect_context::<ZBoostDock>().0;
-    let (drag_data,set_drag_data) = create_slice(
-        state,
-        |state|state.drag_data.clone(),
-        |state,data|state.drag_data = data,
-    );
-    let push_msg = create_write_slice(state,|state,msg|state.dock_list.push_msg(msg));
-    let handle = window_event_listener(ev::dragover, move |ev| {
-        ev.prevent_default();
-    });
-    on_cleanup(move || handle.remove());
-    let handle = window_event_listener(ev::drop, move |ev| {
-       // gloo::timers::callback::Timeout::new(100, move || set_drag_data(None)).forget();
-    });
-    on_cleanup(move || handle.remove());
-    view!{
-        <div class="w-[99vw] h-[99vh] -z-50 absolute top-0"
-            class=("z-[98]",move || zboost())
-            on:drop=move|ev| push_msg(DockMsg::Drop)
-            
-            on:dragover=move |ev| {
-                ev.prevent_default();
-                push_msg(DockMsg::Remove(drag_data().unwrap().dragging_id))
-            }
-            >
-        </div>
-    }
-}
+
 
 /* 
+
 #[derive(Debug,PartialEq,Clone,Default)]
 pub struct DockList{
     list:Vec<Uuid>,
