@@ -22,6 +22,8 @@ pub struct DragData{
     pub dock_idx:Option<usize>,
     pub offset_x:f64,
     pub offset_y:f64,
+    pub mouse_pos_x:f64,
+    pub mouse_pos_y:f64,
 }
 
 #[derive(Debug,PartialEq,Clone,Default)]
