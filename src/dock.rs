@@ -366,6 +366,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     let pos_map = create_write_slice(state,|state,(idx,icon_dimensions)|{state.dock_list.dimensions_map.insert(idx,icon_dimensions);});
     
     create_effect(move |_| {
+        this_idx.track();
         let rect = (*div_ref().unwrap()).get_bounding_client_rect();
         let left = rect.left();
         let top = rect.top();
