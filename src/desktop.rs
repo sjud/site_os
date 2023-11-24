@@ -21,12 +21,10 @@ pub struct RowColsCount{
 
 #[component]
 pub fn DesktopGrid() -> impl IntoView {
-    let system =expect_context::<SystemState>().0;
-    let file_ids = create_read_slice(system,|state|
-        state.file_ids_direct_children_of_path(
-        PathBuf::from_str("/").unwrap())
-    );
-    let settings = create_read_slice(system,|state|state.settings.desktop.clone());
+    let state =expect_context::<GlobalState>();
+    let file_ids = state.file_ids_direct_children_of_path(
+        PathBuf::from_str("/").unwrap());
+    let settings = state.settings.desktop;
     // we need the node ref to examine the dimension of our box.
     let grid_el = create_node_ref::<leptos::html::Div>();
     let (grid_rows_cols,set_grid_rows_cols) = create_signal(RowColsCount::default());
@@ -77,13 +75,11 @@ pub fn DesktopGrid() -> impl IntoView {
 
 #[component]
 pub fn DesktopIcon(file_id:Uuid) -> impl IntoView {
-    let system_runtime =expect_context::<SystemState>().0;
-    let img_src = create_read_slice(system_runtime,move |state|state.img_src(file_id));
-    let run_app = create_write_slice(system_runtime,
-        move |state,_|state.run_app(file_id,0.));
-    let select_file = create_write_slice(system_runtime,
-        move |state,()| state.select_file(file_id));
-
+    let state =expect_context::<GlobalState>().0;
+    let img_src = move || state.img_src(file_id);
+    let run_app = move || state.run_app(file_id,0.);
+    let select_file = move || state.select_file(file_id);
+   
     let inner = view!{
         <button 
         class="pl-2 pr-2 pt-1 pb-1 transition-all ease-linear duration-100 hover:scale-[1.50] hover:-translate-y-2"

@@ -4,14 +4,9 @@ use super::*;
 
 #[component]
 pub fn Folder(file_id:Uuid) -> impl IntoView{
-    let system_runtime =expect_context::<SystemState>().0;
-
-    let path = create_read_slice(system_runtime, move |state| 
-        state.path_from_file_id(file_id)
-    );
-
-    let children_ids = create_read_slice(system_runtime, move |state| 
-        state.file_ids_direct_children_of_path(std::path::PathBuf::from_str(&path()).unwrap()));
+    let system_runtime =expect_context::<GlobalState>();
+    let path = move || state.path_from_file_id(file_id);
+    let children_ids = move || state.file_ids_direct_children_of_path(std::path::PathBuf::from_str(&path()).unwrap());
     
     let children = move || {
         let mut views = Vec::new();

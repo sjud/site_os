@@ -9,7 +9,6 @@ use leptos_meta::*;
 use leptos_router::*;
 pub mod fallback;
 pub mod error_template;
-pub mod client_state;
 #[cfg(feature="ssr")]
 pub mod backend_utils;
 #[cfg(feature="ssr")]
@@ -18,12 +17,12 @@ pub mod user_msg;
 pub mod topbar;
 pub mod taskbar;
 pub mod desktop;
-pub mod system_runtime;
+pub mod global_state;
 pub mod active_procceses;
 pub mod application;
 pub mod folder;
 pub mod dock;
-use system_runtime::SystemRuntime;
+use global_state::GlobalState;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -53,7 +52,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 pub fn OperatingSystem() -> impl IntoView {
-    use system_runtime::*;
+    use global_state::*;
     let finder_id = Uuid::new_v4();
     let firefox_id = Uuid::new_v4();
     let calendar_id = Uuid::new_v4();
@@ -166,10 +165,10 @@ pub fn OperatingSystem() -> impl IntoView {
         ..Default::default()
     });
 
-    provide_context::<SystemState>(SystemState(create_rw_signal(SystemRuntime::new(
+    provide_context::<GlobalState>(GlobalState::new(
         file_system,
         dock_list,
-    ))));
+    ));
     
   
     view!{
@@ -180,8 +179,6 @@ pub fn OperatingSystem() -> impl IntoView {
     }
 }
 
-#[derive(Copy,Clone,Debug,PartialEq)]
-pub struct SystemState(pub RwSignal<SystemRuntime>);
 
 #[component]
 pub fn DisableRightClick() -> impl IntoView {

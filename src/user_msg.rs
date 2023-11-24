@@ -2,12 +2,7 @@ use super::*;
 
 #[component]
 pub fn UserMsg() -> impl IntoView {
-    let state = expect_context::<RwSignal<client_state::ClientState>>();
-    let (msg, msg_set) = create_slice(
-        state,
-        |state| state.user_msg.clone(),
-        |state, val| state.user_msg = val,
-    );
+    let (msg,msg_set) = expect_context::<GlobalState>().user_msg.split();
     let clear_msg = move |_| msg_set.set(user_msg::UserMsg::default());
     view! {
         { move || {
