@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 #[derive(Clone,PartialEq,Copy)]
 pub struct GlobalState{
-    pub active_proccesses:RwSignal<ActiveProccesses>,
+    pub active_proccesses:RwSignal<ActiveProcesses>,
     pub file_system:RwSignal<FileSystem>,
     pub selected_file_id:RwSignal<Option<Uuid>>,
     pub settings:SystemSettings,
@@ -16,7 +16,7 @@ pub struct GlobalState{
 }
 
 
-#[derive(Debug,PartialEq,Clone,Default)]
+#[derive(Debug,PartialEq,Clone,Copy,Default)]
 pub struct SystemSettings{
     pub desktop:RwSignal<DesktopSettings>,
     pub taskbar:RwSignal<TaskBarSettings>,
@@ -86,9 +86,9 @@ impl Default for TaskBarSettings {
 }
 
 #[derive(Debug,PartialEq,Clone)]
-pub struct ActiveProccesses(pub HashMap<Uuid,ActiveProcess>);
+pub struct ActiveProcesses(pub HashMap<Uuid,ActiveProcess>);
 
-impl ActiveProccesses{
+impl ActiveProcesses{
     pub fn new() -> Self {
         Self(HashMap::new())
     }
@@ -104,7 +104,7 @@ pub struct ActiveProcess{
 impl GlobalState {
     pub fn new(file_system:FileSystem,dock_list:Vec<Uuid>) -> Self {
         Self {
-            active_proccesses:create_rw_signal(ActiveProccesses::new()),
+            active_proccesses:create_rw_signal(ActiveProcesses::new()),
             file_system:create_rw_signal(file_system),
             selected_file_id:create_rw_signal(None),
             settings:SystemSettings::default(),
@@ -145,7 +145,7 @@ impl GlobalState {
 
     pub fn run_app(&self, id:Uuid,time:f64) {
         let active_procceses = self.active_proccesses;
-        if let Some(file) = self.file_system.with(move|fs|fs.tree.get_mut(&id)) {
+        if let Some(file) = self.file_system.get().tree.get_mut(&id) {
             file.metadata.accessed = time;
             let stack_size = active_procceses().0.len();
             let start_time = time;

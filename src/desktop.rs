@@ -75,7 +75,7 @@ pub fn DesktopGrid() -> impl IntoView {
 
 #[component]
 pub fn DesktopIcon(file_id:Uuid) -> impl IntoView {
-    let state =expect_context::<GlobalState>().0;
+    let state = expect_context::<GlobalState>();
     let img_src = move || state.img_src(file_id);
     let run_app = move || state.run_app(file_id,0.);
     let select_file = move || state.select_file(file_id);
@@ -84,8 +84,8 @@ pub fn DesktopIcon(file_id:Uuid) -> impl IntoView {
         <button 
         class="pl-2 pr-2 pt-1 pb-1 transition-all ease-linear duration-100 hover:scale-[1.50] hover:-translate-y-2"
             id=file_id.to_string()
-            on:pointerdown =  move |_| select_file(())
-            on:dblclick = move |_| run_app(())
+            on:pointerdown =  move |_| select_file()
+            on:dblclick = move |_| run_app()
          >
         <img src=img_src/>
         </button> 

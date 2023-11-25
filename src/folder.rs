@@ -4,7 +4,7 @@ use super::*;
 
 #[component]
 pub fn Folder(file_id:Uuid) -> impl IntoView{
-    let system_runtime =expect_context::<GlobalState>();
+    let state =expect_context::<GlobalState>();
     let path = move || state.path_from_file_id(file_id);
     let children_ids = move || state.file_ids_direct_children_of_path(std::path::PathBuf::from_str(&path()).unwrap());
     
