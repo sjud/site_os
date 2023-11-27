@@ -1,4 +1,4 @@
-use crate::dock::{DockList};
+use crate::dock::{DockEngine};
 use crate::topbar::ProgramTopBarData;
 
 use super::*;
@@ -11,7 +11,7 @@ pub struct GlobalState{
     pub selected_file_id:RwSignal<Option<Uuid>>,
     pub settings:SystemSettings,
     pub program_top_bar:RwSignal<Option<ProgramTopBarData>>,
-    pub dock_list:DockList,
+    pub dock:DockEngine,
     pub user_msg:RwSignal<user_msg::UserMsg>,
 }
 
@@ -109,7 +109,7 @@ impl GlobalState {
             selected_file_id:create_rw_signal(None),
             settings:SystemSettings::default(),
             program_top_bar:create_rw_signal(None),
-            dock_list: DockList::new(dock_list),
+            dock: DockEngine::new(dock_list),
             user_msg:create_rw_signal(user_msg::UserMsg::default())
         }
     }
