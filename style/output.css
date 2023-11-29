@@ -670,8 +670,16 @@ video {
   width: 99vw;
 }
 
+.w-auto {
+  width: auto;
+}
+
 .w-full {
   width: 100%;
+}
+
+.min-w-\[0\.25rem\] {
+  min-width: 0.25rem;
 }
 
 .shrink {
@@ -734,10 +742,6 @@ video {
   justify-content: flex-start;
 }
 
-.overflow-visible {
-  overflow: visible;
-}
-
 .rounded {
   border-radius: 0.25rem;
 }
@@ -774,6 +778,11 @@ video {
 .border-red-500 {
   --tw-border-opacity: 1;
   border-color: rgb(239 68 68 / var(--tw-border-opacity));
+}
+
+.bg-blue-200 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(191 219 254 / var(--tw-bg-opacity));
 }
 
 .bg-blue-50 {
@@ -928,16 +937,16 @@ video {
           backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 
-.transition-all {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
 .transition {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-backdrop-filter;
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.transition-all {
+  transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
@@ -948,6 +957,10 @@ video {
 
 .ease-linear {
   transition-timing-function: linear;
+}
+
+.hover\:w-\[4\.75rem\]:hover {
+  width: 4.75rem;
 }
 
 .hover\:-translate-y-2:hover {

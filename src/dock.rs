@@ -46,7 +46,380 @@ use anyhow::anyhow;
     */
 
 use super::*;
+pub static SHIFT_TIME:u64 = 250;
+pub static DOCK_AREA_ABOVE:f64 = 100.;
+pub static SHIFT_SPACE:f64 = 76.5;
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub struct DockData{
+    init_ids:RwSignal<Vec<Uuid>>,
+    bg_rect:RwSignal<Option<Rect>>,
+    dock_icons:RwSignal<HashMap<Uuid,(RwSignal<DockIconData>,RwSignal<DockIconSpacingData>)>>,
+    drag_start_data:RwSignal<Option<DragStartData>>,
+}
+impl DockData {
+    pub fn init(list:Vec<Uuid>) -> Self {
+        Self{
+            init_ids: create_rw_signal(list.clone()),
+            bg_rect: create_rw_signal(None),
+            drag_start_data: create_rw_signal(None),
+            dock_icons: create_rw_signal(list.into_iter().map(|id: Uuid|(id,{
+                let move_data = create_rw_signal(MoveData::default());
+                let rect = create_rw_signal(Rect::default());
+                (
+                    create_rw_signal(DockIconData{
+                        is_being_dragged: create_rw_signal(false),
+                        rect,
+                        move_data,
+                    }),
+                    create_rw_signal(DockIconSpacingData{
+                        move_data,   
+                        icon_rect:rect,                
+                    })
+                )
+            })).collect()),
+        }
+    }
 
+    pub fn init_values(&self) {
+        let dock_ref = create_node_ref::<Div>();
+ 
+        let bg_rect = self.bg_rect;
+        let dock_icons = self.dock_icons;
+        create_effect(move|_| {
+            let rect = (*dock_ref().unwrap()).get_bounding_client_rect();
+            bg_rect.set_untracked(Some(Rect::new(rect)));
+        });
+        let item = self.init_ids;
+        view!{
+            <div _ref=dock_ref class="opacity-0 -z-100">
+            <For 
+            each=move || items.get_untracked().into_iter()
+            key=|id| *id
+            children=move |file_id| {
+                view! {
+                    <InitIcon file_id dock_icons/>
+                    <InitIconSpacing/>
+                    }   
+            }
+            />   
+            </div>
+        };
+    }
+
+    pub fn clear_moves(&self) {
+        for (data,_) in self.dock_icons.get_untracked().values() {
+            let data = data.get_untracked();
+            data.move_data.set_untracked(MoveData::default());
+        }
+    }
+
+    pub fn clear_drag_start(&self) {
+        self.drag_start_data.set_untracked(None);
+    }
+
+    /// Should only be called from drag_over event.
+    pub fn drag_over_icon(&self,
+        ev:DragEvent,
+        file_id:Uuid,) {
+        let (icon_data,_) = self.dock_icons.get_untracked().get(&file_id).cloned().unwrap();
+        let drag_start_data = self.drag_start_data.get_untracked().unwrap();
+        let mouse_pos_x = ev.client_x() as f64;
+        let rect = icon_data.get_untracked().rect.get_untracked();
+        let left_bounds = rect.left..(rect.width/2.);
+        let right_bounds = left_bounds.end..=rect.right;
+        let move_data = icon_data.get_untracked().move_data.get_untracked();
+        if left_bounds.contains(&mouse_pos_x) && drag_start_data.drag_start_x > rect.right && !move_data.has_moved_right {
+            icon_data.get_untracked().move_data.update_untracked(|data|data.has_moved_right=true);
+            icon_data.get_untracked().rect.update(|rect|{
+                rect.left -= SHIFT_SPACE;
+                rect.right -= SHIFT_SPACE;
+            });
+        } else if right_bounds.contains(&mouse_pos_x) && drag_start_data.drag_start_x < rect.left && !move_data.has_moved_left {
+            icon_data.get_untracked().move_data.update_untracked(|data|data.has_moved_left=true);
+            icon_data.get_untracked().rect.update(|rect|{
+                rect.left += SHIFT_SPACE;
+                rect.right += SHIFT_SPACE;
+            });
+        } 
+        // Find out whether to shift left/right given drag_start_x and the icon_data left/right and mouse_pos_x
+    }
+
+    pub fn drag_over_spacing(&self,
+        ev:DragEvent,
+        file_id:Uuid,
+        ) {
+            let (_,spacing_data) = self.dock_icons.get_untracked().get(&file_id).cloned().unwrap();
+            let list = self.init_ids.get_untracked();
+            let idx = list.iter().position(|&id|id==file_id).unwrap();
+            let list_len = list.len();
+            let left_range = 0..=idx;
+            let right_range = idx+1..list_len;
+            for (i,id) in list.iter().enumerate() {
+                let icon_data = self.dock_icons.get_untracked().get(i).cloned().unwrap().0.get_untracked();
+                let move_data = icon_data.move_data.get_untracked();
+                if left_range.contains(&i) && !move_data.has_shifted_left_new_addition {
+                    icon_data.move_data.update_untracked(|data|data.has_shifted_left_new_addition=true);
+                    icon_data.rect.update(|rect|{
+                        rect.left -= SHIFT_SPACE/2.;
+                        rect.right -= SHIFT_SPACE/2.;
+                    });
+                } else if right_range.contains(&i) && !move_data.has_shifted_right_new_addition {
+                    icon_data.move_data.update_untracked(|data|data.has_shifted_right_new_addition=true);
+                    icon_data.rect.update(|rect|{
+                        rect.left += SHIFT_SPACE/2.;
+                        rect.right += SHIFT_SPACE/2.;
+                    });
+                }
+            }
+        }
+}
+
+#[component]
+pub fn InitIconSpacing() -> impl IntoView{
+    view!{
+        <div class="w-auto min-w-[0.25rem">
+        </div>
+    }
+}
+
+#[component]
+pub fn InitIcon(file_id:Uuid,dock_icons:RwSignal<HashMap<Uuid,(RwSignal<DockIconData>,RwSignal<DockIconSpacingData>)>>) -> impl IntoView {
+    let icon_ref = create_node_ref::<Div>();
+    create_effect( move |_| {
+        let rect = (*icon_ref().unwrap()).get_bounding_client_rect();
+        dock_icons.update_untracked(|map|{
+            let (icon_data,_) = map.get_mut(&file_id).unwrap();
+            icon_data.get_untracked().rect.set(Rect::new(rect));
+        });
+    });
+
+    view!{
+        <div _ref=icon_ref
+        class="w-[4.5rem] h-[4.5rem]"
+        >
+        <div> 
+        </div>  
+        <div 
+        class="h-1 w-1 ml-auto mr-auto"> 
+        </div>
+        </div>
+    }
+}
+
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub struct DragStartData{
+    pub drag_start_x:f64,
+    pub offset_x:f64,
+    pub offset_y:f64,
+}
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub struct DockIconData{
+    is_being_dragged:RwSignal<bool>,
+    move_data:RwSignal<MoveData>,
+    rect:RwSignal<Rect>,
+}
+
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub struct DockIconSpacingData{
+    move_data:RwSignal<MoveData>,
+    icon_rect:RwSignal<Rect>,
+}
+
+#[derive(Copy,Clone,Debug,PartialEq,Default)]
+pub struct MoveData{
+    has_moved_left:bool,
+    has_moved_right:bool,
+    has_shifted_left_new_addition:bool,
+    has_shifted_right_new_addition:bool,
+}
+
+#[derive(Copy,Clone,Debug,PartialEq,Default)]
+pub struct Rect{
+    left:f64,
+    top:f64,
+    right:f64,
+    bottom:f64,
+    height:f64,
+    width:f64,
+}
+
+impl Rect{
+    pub fn new(rect:web_sys::DomRect) -> Self {
+        Self { 
+            left: rect.left(), 
+            top: rect.top(), 
+            right: rect.right(), 
+            bottom: rect.bottom(), 
+            height: rect.height(), 
+            width: rect.width() 
+        }
+    }
+}
+
+
+#[component]
+pub fn Dock() -> impl IntoView {
+    let state = expect_context::<GlobalState>();
+    state.dock.init_values();
+    let init_ids = state.dock.init_ids.get_untracked();
+    let track_ids = create_memo(move |_|(state.dock.init_ids)());
+    create_effect(move |_| {
+        if init_ids != track_ids() {
+            state.dock.init_values();
+        }
+    });
+    view!{
+        <div 
+        class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
+        left-1/2 transform -translate-x-1/2 flex"
+        >
+        <For 
+        each=move || (state.dock.init_ids)().into_iter()
+        key=|id| *id
+        children=move |file_id| {
+            view! {
+                <Icon file_id/>
+                <IconSpacing file_id/>
+            }
+        }
+        />   
+        </div>
+    }
+}
+
+pub fn set_img_transparent(ev:&DragEvent) -> anyhow::Result<()> {
+    let transparent_image = web_sys::window()
+    .ok_or(anyhow!("window"))?
+    .document()
+    .ok_or(anyhow!("document"))?
+    .create_element("img")
+    .map_err(|_|anyhow!("create_element"))?
+    .dyn_into::<web_sys::HtmlImageElement>()
+    .map_err(|_|anyhow!("dyn html image"))?;
+    transparent_image.set_src("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+    let data_transfer = ev.data_transfer().ok_or(anyhow!("data transfer"))?;
+    data_transfer.set_drag_image(&transparent_image, 0, 0);
+    Ok(())
+}
+
+#[component]
+pub fn IconSpacing(file_id:Uuid) -> impl IntoView {
+    /*
+        when dragged, over expand, on drop the icon moves to occupy the position icon spacing expanded to
+        and after the transition we'll insert the icon id in the ids of the dock (in correct position) and re_init it.
+        Hide if file_id is being dragged.
+     */
+    let state = expect_context::<GlobalState>();
+    let spacing_ref = create_node_ref::<Div>();
+    let (_,data) = state.dock.dock_icons.get_untracked().get(&file_id).cloned().unwrap();
+    let rect = data.get_untracked().icon_rect;
+    create_effect( move |_| {
+        let Rect {right,top,..}= rect();
+        _ = spacing_ref().unwrap()
+            .style("left",&format!("{}px",right))
+            .style("top",&format!("{}px",top));    
+    });
+    view!{
+        <div _ref=spacing_ref
+        class="w-auto min-w-[0.25rem] bg-blue-200"
+            style="transition:width 250ms linear,left 250ms linear;"
+            on:dragover = move |ev| {
+
+            }
+            on:drop = move |ev| {
+
+            }
+            on:transitionrun = move |ev| {
+                spacing_ref().unwrap().style("pointer-events","none");
+            }   
+
+            on:transitionend = move |ev| {
+                spacing_ref().unwrap().style("pointer-events","auto");
+            }
+        >
+        </div>
+    }
+}
+
+#[component]
+pub fn Icon(file_id:Uuid) -> impl IntoView {
+    let state = expect_context::<GlobalState>();
+    let icon_ref = create_node_ref::<leptos::html::Div>();
+    let (data,_) = state.dock.dock_icons.get_untracked().get(&file_id).cloned().unwrap();
+    let is_being_dragged = data.get_untracked().is_being_dragged;
+    let img_src = move || state.img_src(file_id);
+    let is_running = move || state.is_running(file_id);
+    let run_app = move || state.run_app(file_id,0.);
+    let (is_jumping,set_jumping) = create_signal(false);
+    let rect = data.get_untracked().rect;
+    let leptos_use::UseMouseReturn {
+        x, y, ..
+    } = leptos_use::use_mouse();
+    let drag_data = state.dock.drag_start_data;
+    create_effect( move |_| {
+        if is_being_dragged() {
+            let drag_data = drag_data.get_untracked().unwrap();
+            _ = icon_ref().unwrap()
+                .style("left",&format!("{}px",x()+drag_data.offset_x))
+                .style("top",&format!("{}px",y()+drag_data.offset_y)); 
+        } else {
+            let Rect {left,top,..} = rect();
+            _ = icon_ref().unwrap()
+                .style("left",&format!("{}px",left))
+                .style("top",&format!("{}px",top));
+        }     
+    });
+
+    view!{
+        <div _ref=icon_ref
+        class="z-10 w-[4.5rem] h-[4.5rem]"
+        class=("animate-jump",move || is_jumping())
+            on:dragstart=move|ev| {    
+                icon_ref().unwrap().style("transition","");
+                set_img_transparent(&ev).unwrap();
+                let x = ev.client_x();
+                state.dock.drag_start_x.set_untracked(Some(x));
+            }
+            on:dragover=move |ev| {
+            
+            }
+            on:drop=move |ev| {
+                // when you drop an icon on an icon it moves into it's spacing..
+                // i.e find out the left top of the spacing and move the icon there, stretch the spacing and reinit the dock.
+            }
+            on:dragend=move|_|{
+                icon_ref().unwrap().style("transition","left 250ms linear, top 250ms linear");
+            }
+            on:click =  move |_| 
+            if !is_running() {
+                run_app();
+                set_jumping(true);
+            }
+            on:transitionend = move |ev| {
+                icon_ref().unwrap().style("pointer-events","auto");
+            }
+            on:transitionrun = move |ev| {
+                icon_ref().unwrap().style("pointer-events","none");
+            }   
+        >
+           
+        <div> 
+        <img class="rounded-md" src=img_src />
+        </div>  
+        <Show when=move||!is_being_dragged() fallback=||view!{}>
+        <div 
+        class=("invisible", move || !is_running())
+        class="rounded-full bg-slate-400 h-1 w-1 ml-auto mr-auto"> 
+        </div>
+        </Show>
+        </div>
+    }
+}
+
+
+
+
+/* // take 3
 pub static SHIFT_TIME:u64 = 250;
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct DockEngine{
@@ -61,12 +434,12 @@ pub struct DockEngine{
 #[derive(Clone)]
 pub struct IconData{
     file_id:Uuid,
-    animation_state:RwSignal<AnimationState>,
+    animation_state:RwSignal<Option<AnimationState>>,
+    left:RwSignal<f64>,
     el:NodeRef<Div>,
 }
 #[derive(Clone,Debug,PartialEq)]
 pub enum AnimationState{
-    OnDock,
     BeingDragged,
     ShiftingLeft,
     ShiftingRight,
@@ -75,7 +448,7 @@ pub enum AnimationState{
 /// The two drag events we are watching for,
 /// they  are initiated by static elements on the dock when they are interacted with, i.e when drag starts or they are dragged over.
 pub enum DragEventMsg{
-    DragStart(Uuid,DragEvent,f64,f64),
+    DragStart(Uuid,DragEvent),
     DragOver(Uuid,DragEvent),
     DragEnd,
 }
@@ -90,16 +463,9 @@ pub enum InsertMsg{
 pub struct DragData{
     dragging_id:Uuid,
     dock_idx:usize,
-    // offset is the distance into the icon, from left and top respectively
-    offset_x:f64,
-    offset_y:f64,
     //mouse pos is the absolute position relative to the view port (at the time of click)
     mouse_pos_x:f64,
     mouse_pos_y:f64,
-    // use the dock values to calcualte the drag coordinates relative to the viewport (given that the projected div and the dock are both non-static)
-    dock_left:f64,
-    dock_top:f64,
-
 }
 
 impl DockEngine{
@@ -107,79 +473,43 @@ impl DockEngine{
     pub fn new(list:Vec<Uuid>) -> Self {
         let map = list.iter().map(|&id|(id,create_rw_signal(IconData{
             file_id:id,
-            animation_state:create_rw_signal(AnimationState::OnDock),
+            animation_state:create_rw_signal(None::<AnimationState>),
+            left:create_rw_signal(0.),
             el:create_node_ref::<Div>(),
         })))
         .collect::<HashMap<Uuid,RwSignal<IconData>>>();
         Self{  
-            icon_data:create_rw_signal(map),
-            list:create_rw_signal(list),
+            icon_data: create_rw_signal(map),
+            list: create_rw_signal(list),
             drag_data: create_rw_signal(None),
-            insert_set:create_rw_signal(HashSet::new()),
-            insert_queue:create_rw_signal(VecDeque::new()),
+            insert_set: create_rw_signal(HashSet::new()),
+            insert_queue: create_rw_signal(VecDeque::new()),
             left_idx: create_rw_signal(HashMap::new()),
             top_idx: create_rw_signal(HashMap::new()),
         }
     }
-
-    pub fn handle_insert_msg(&self) {
-        let insert_set = self.insert_set;
-        let list = self.list;
-        let drag_data = self.drag_data;
-        self.insert_queue.update(|queue| if let Some(msg) = queue.pop_front() {
-            leptos::logging::log!("{msg:?}");
-            match msg {
-                InsertMsg::InsertLeft(right_id) => {
-                    set_timeout(move || {
-                        insert_set.update(|set|{set.remove(&msg);});
-                        let idx = list.get_untracked().iter().position(|&id|id==right_id).unwrap();
-                        let dragging_id = drag_data.get_untracked().unwrap().dragging_id;
-                        let dragging_idx = list.get_untracked().iter().position(|&id|id==dragging_id).unwrap();
-                        if idx > 0 {
-                            list.update_untracked(|list|{list.remove(dragging_idx);});
-                            list.update(|list|list.insert(idx-1 ,dragging_id));
-                        }
-                    },std::time::Duration::from_millis(SHIFT_TIME));
-                }
-                InsertMsg::InsertRight(left_id) =>{
-                    set_timeout(move || {
-                        insert_set.update(|set|{set.remove(&msg);});
-                        let idx = list.get_untracked().iter().position(|&id|id==left_id).unwrap();
-                        let dragging_id = drag_data.get_untracked().unwrap().dragging_id;
-                        let dragging_idx = list.get_untracked().iter().position(|&id|id==dragging_id).unwrap();
-                        list.update_untracked(|list|{list.remove(dragging_idx);});
-                        list.update(|list|list.insert(idx,dragging_id));
-                    },std::time::Duration::from_millis(SHIFT_TIME));
-                },
-            }
-        });
-    }
+  
+   
 
     pub fn drag_event(&self,msg:DragEventMsg) {
         let icon_data = self.icon_data.clone();
         let animate = move |anim_state:AnimationState,file_id:Uuid| {
-            icon_data.get_untracked().get(&file_id).unwrap().update(|data|data.animation_state.set(anim_state));
+            icon_data.get_untracked().get(&file_id).unwrap().update(|data|data.animation_state.set(Some(anim_state)));
         };
 
         match msg {
-            DragEventMsg::DragStart(dragging_id,ev,dock_left,dock_top) => {
+            DragEventMsg::DragStart(dragging_id,ev) => {
                 let dock_idx = self.list.get_untracked().iter().position(|&id|id==dragging_id).unwrap();
                 let (mouse_pos_x,mouse_pos_y) = (ev.client_x() as f64, ev.client_y() as f64);
-                let div_rect = event_target::<web_sys::HtmlDivElement>(&ev).get_bounding_client_rect();
-                let (offset_x,offset_y) = (mouse_pos_x - div_rect.left(),mouse_pos_y - div_rect.top());
                 let drag_data = DragData{
                     dragging_id,
                     dock_idx,
-                    offset_x,
-                    offset_y,
                     mouse_pos_x,
                     mouse_pos_y,
-                    dock_left,
-                    dock_top,
                 };
                 self.drag_data.set(Some(drag_data));
                 self.icon_data.get_untracked().get(&dragging_id).unwrap()
-                    .update(|data|data.animation_state.set(AnimationState::BeingDragged));
+                    .update(|data|data.animation_state.set(Some(AnimationState::BeingDragged)));
             },
             DragEventMsg::DragOver(drag_over_id,ev) => {          
                 let idx = self.list.get_untracked().iter().position(|&id|id==drag_over_id).unwrap();    
@@ -236,36 +566,55 @@ impl DockEngine{
             },
             DragEventMsg::DragEnd => {
                 let dragging_id = self.drag_data.get_untracked().unwrap().dragging_id;
-                self.icon_data.get_untracked().get(&dragging_id).unwrap().update(|data|data.animation_state.set(AnimationState::ReturningToDock));
+                self.icon_data.get_untracked().get(&dragging_id).unwrap().update(|data|data.animation_state.set(Some(AnimationState::ReturningToDock)));
                 self.drag_data.set(None);
             }
         }
     }
+    pub fn handle_insert_msg(&self) {
+        let insert_set = self.insert_set;
+        let list = self.list;
+        let drag_data = self.drag_data;
+        let dragging_icon_data = self.icon_data.get_untracked().get(&drag_data.get_untracked().unwrap().dragging_id).cloned().unwrap();
+        self.insert_queue.update(|queue| if let Some(msg) = queue.pop_front() {
+            match msg {
+                InsertMsg::InsertLeft(right_id) => {
+                    let idx = list.get_untracked().iter().position(|&id|id==right_id).unwrap();
+                    let dragging_id = drag_data.get_untracked().unwrap().dragging_id;
+                    let dragging_idx = list.get_untracked().iter().position(|&id|id==dragging_id).unwrap();
+                    if idx > 0 {
+                        list.update_untracked(|list|{list.remove(dragging_idx);});
+                        list.update(|list|list.insert(idx-1 ,dragging_id));
+                    }
+                    leptos::logging::log!("{:?}",list());
+                    set_timeout(move || {
+                        insert_set.update(|set|{set.remove(&msg);});
+                    },std::time::Duration::from_millis(SHIFT_TIME));
+                }
+                InsertMsg::InsertRight(left_id) =>{
+                    let idx = list.get_untracked().iter().position(|&id|id==left_id).unwrap();
+                    let dragging_id = drag_data.get_untracked().unwrap().dragging_id;
+                    let dragging_idx = list.get_untracked().iter().position(|&id|id==dragging_id).unwrap();
+                    list.update_untracked(|list|{list.remove(dragging_idx);});
+                    list.update(|list|list.insert(idx,dragging_id));
 
+                    set_timeout(move || {
+                        insert_set.update(|set|{set.remove(&msg);});
+                    },std::time::Duration::from_millis(SHIFT_TIME-10));
+                },
+            }
+        });
+    }
     pub fn animate_state(&self,file_id:Uuid,left_file_id:Option<Uuid>,right_file_id:Option<Uuid>,x:Option<f64>,y:Option<f64>) {
         let data = self.icon_data.get_untracked().get(&file_id).cloned().unwrap();
-        if let Some(el) = data.get_untracked().el.get_untracked() {
-            let state = data.get_untracked().animation_state.get_untracked();
-            let on_dock_timeout = move ||  set_timeout(move || data
-                .get_untracked()
-                .animation_state
-                .set(AnimationState::OnDock),
-                std::time::Duration::from_millis(SHIFT_TIME));
+        if let (Some(el),Some(state)) = (
+            data.get_untracked().el.get_untracked(),
+            data.get_untracked().animation_state.get_untracked()
+        ) {
             match state {
-                AnimationState::OnDock => {
-                    let el = el
-                    .style("pointer-events","auto")
-                    .style("transform","translate(0px,0px)")
-                    .style("z-index","auto")
-                    .style("transition","transform 0ms");
-                    //data.update(|data|{data.left=el.get_bounding_client_rect().left();data.top=el.get_bounding_client_rect().top();})
-                }
                 AnimationState::BeingDragged => {
-                    let idx = self.list.get_untracked().iter().position(|&id|id==file_id).unwrap();
-                    let left = self.left_idx.get_untracked().get(&idx).cloned().unwrap();
-                    let DragData { dragging_id, dock_idx, offset_x, offset_y, mouse_pos_x, mouse_pos_y, dock_left, dock_top } =
-                     self.drag_data.get_untracked().unwrap();
-                    let left = x.unwrap() -  offset_x - left;
+                    let DragData {  mouse_pos_x,mouse_pos_y,.. } = self.drag_data.get_untracked().unwrap();
+                    let left = x.unwrap() - mouse_pos_x;
                     let top = y.unwrap() - mouse_pos_y;
                     _ = el
                     .style("z-index","100")
@@ -280,13 +629,11 @@ impl DockEngine{
                     let left_idx =  self.list.get_untracked().iter().position(|&id|id==left_file_id.unwrap())
                     .unwrap();
                     let left_el_left = self.left_idx.get_untracked().get(&left_idx).cloned().unwrap();
-    
                     _ = el
                     .style("transform",&format!("translate({}px,0px)",left_el_left-left))// left_el_left is less than left which will give us <0 which is left shift along the x axis
                     .style("transition",&format!("transform {}ms",SHIFT_TIME))
                     .style("transition-timing-function","linear")
                     .style("pointer-events","none");
-                    on_dock_timeout()
                 },
                 AnimationState::ShiftingRight => {
                     leptos::logging::log!("{file_id} : {state:?}");
@@ -300,18 +647,41 @@ impl DockEngine{
                     .style("transition",&format!("transform {}ms",SHIFT_TIME))
                     .style("transition-timing-function","linear")
                     .style("pointer-events","none");
-                    on_dock_timeout()
-                }
+                },
                 AnimationState::ReturningToDock => {
                     _ = el
                     .style("transform",&format!("translate(0px,0px)"))
                     .style("transition",&format!("transform {}ms",SHIFT_TIME))
                     .style("transition-timing-function","linear")
                     .style("pointer-events","none");
-                    on_dock_timeout()
                 }       
             }
         }   
+    }
+    pub fn transition_end(&self,file_id:Uuid) {
+        let data = self.icon_data.get_untracked().get(&file_id).cloned().unwrap();
+        let el = data.get_untracked().el.get_untracked().unwrap();
+        let idx = self.list.get_untracked().iter().position(|&id|id==file_id).unwrap();
+        let left = self.left_idx.get_untracked().get(&idx).cloned().unwrap();
+        let top = self.top_idx.get_untracked().get(&idx).cloned().unwrap();
+        _ = el
+                    .style("pointer-events","auto")
+                    .style("transform","translate(0px,0px)")
+                    .style("z-index","auto")
+                    .style("transition","transform 0ms")
+                    .style("top",&format!("{}px",top));
+        data.update(|data|data.animation_state.set(None));
+        // match state , left -> get left pos for idx-1 etc
+        /*
+         AnimationState::OnDock => {
+                    let el = el
+                    .style("pointer-events","auto")
+                    .style("transform","translate(0px,0px)")
+                    .style("z-index","auto")
+                    .style("transition","transform 0ms");
+                    //data.update(|data|{data.left=el.get_bounding_client_rect().left();data.top=el.get_bounding_client_rect().top();})
+                },
+         */
     }
 }
 
@@ -323,9 +693,26 @@ pub fn Dock() -> impl IntoView {
     let queue = state.dock.insert_queue;
     let set = state.dock.insert_set;
     let queue = create_memo(move |_| queue());
+    let icon_list = create_rw_signal(Vec::<HtmlElement<Div>>::new());
     create_effect(move|_| {
-        leptos::logging::log!("queue: {:?}",queue());
+        let rect = (*dock_ref().unwrap()).get_bounding_client_rect();
+        _ = dock_ref().unwrap()
+        .style("height",&format!("{}px",rect.height()))
+        .style("width",&format!("{}px",rect.width()));
+        
     });
+    create_effect(move |_| {
+        if icon_list().len() == items().len() {
+            for (idx,icon) in icon_list().into_iter().enumerate() {
+                let left = state.dock.left_idx.get_untracked().get(&idx).cloned().unwrap();
+                let top = state.dock.top_idx.get_untracked().get(&idx).cloned().unwrap();
+                _ = icon.style("position","absolute")
+                .style("left",&format!("{}px",left))
+                .style("top",&format!("{}px",top));
+            }
+        }
+    });
+
     create_effect(move |_| {
         if !queue().is_empty() {
             state.dock.handle_insert_msg();
@@ -334,9 +721,9 @@ pub fn Dock() -> impl IntoView {
 
   
     let set = create_memo(move |_| set());
-    create_effect(move|_| {
-        leptos::logging::log!("SET: {:?}",set());
-    });
+
+ 
+
     view!{
         <div _ref=dock_ref
         class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
@@ -346,6 +733,7 @@ pub fn Dock() -> impl IntoView {
         each=move || items().into_iter().enumerate()
         key=|(_,id)| *id
         children=move |(idx,file_id)| {
+            leptos::logging::log!("render {idx}");
             let id_left = if idx > 0 {
                 Some(items().get(&idx-1).cloned().unwrap())
             } else {
@@ -357,7 +745,7 @@ pub fn Dock() -> impl IntoView {
                 None
             }; 
             view! {
-                <Icon file_id id_left id_right parent=dock_ref idx/>
+                <Icon file_id id_left id_right parent=dock_ref idx icon_list/>
                 }
         }
         />   
@@ -381,7 +769,7 @@ pub fn set_img_transparent(ev:&DragEvent) -> anyhow::Result<()> {
 }
 
 #[component]
-pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:NodeRef<Div>,idx:usize) -> impl IntoView {
+pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:NodeRef<Div>,idx:usize, icon_list:RwSignal<Vec<HtmlElement<Div>>>) -> impl IntoView {
     let state = expect_context::<GlobalState>();
     let icon_ref = create_node_ref::<leptos::html::Div>();
     let is_being_dragged = move || state.dock.drag_data.with(|data|data.map(|data|data.dragging_id==file_id));
@@ -389,15 +777,22 @@ pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:Node
     let is_running = move || state.is_running(file_id);
     let run_app = move || state.run_app(file_id,0.);
     let (is_jumping,set_jumping) = create_signal(false);
-    let update_left = move |left| state.dock.left_idx.update_untracked(move |data|{data.insert(idx,left);});  
+    let left = state.dock.icon_data.get_untracked().get(&file_id).unwrap().get_untracked().left;
+    let update_left = move |l| {
+        state.dock.left_idx.update_untracked(move |data|{data.insert(idx,l);});
+        left.set(l);
+    };  
     let update_top = move |top| state.dock.top_idx.update_untracked(move |data|{data.insert(idx,top);});    
     let update_node = move |icon_ref| state.dock.icon_data.get_untracked().get(&file_id).unwrap().update_untracked(move |data|data.el=icon_ref);
     let animation_state = state.dock.icon_data.get_untracked().get(&file_id).unwrap().get_untracked().animation_state;
     let list = state.dock.list;
     create_effect( move |_| {
-        let rect = (*icon_ref().unwrap()).get_bounding_client_rect();
-        update_left(rect.left());
-        update_top(rect.top());
+        let left = icon_ref().unwrap().offset_left();
+        let top = icon_ref().unwrap().offset_top();
+        update_left(left as f64);
+        update_top(top as f64);
+        icon_list.update(|list|list.push(icon_ref().unwrap()));
+      
     });
     create_effect(move |_| update_node(icon_ref));
     let leptos_use::UseMouseReturn {
@@ -405,14 +800,14 @@ pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:Node
     } = leptos_use::use_mouse();
     create_effect(move |_| {
         let (x,y) = (
-            (animation_state() == AnimationState::BeingDragged).then(move||x()),
-            (animation_state() == AnimationState::BeingDragged).then(move||y()),
+            (animation_state() == Some(AnimationState::BeingDragged)).then(move||x()),
+            (animation_state() == Some(AnimationState::BeingDragged)).then(move||y()),
         );
-        request_animation_frame(move || state.dock.animate_state(
-            file_id,id_left,id_right,x,y
-        ));
+        request_animation_frame(move || 
+            state.dock.animate_state(file_id,id_left,id_right,x,y)
+        );
     });
-   
+
 
     view!{
         <div _ref=icon_ref
@@ -420,8 +815,7 @@ pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:Node
         class=("animate-jump",move || is_jumping())
             on:dragstart=move|ev| {    
                 set_img_transparent(&ev).unwrap();
-                let rect = (*parent().unwrap()).get_bounding_client_rect();
-                state.dock.drag_event(DragEventMsg::DragStart(file_id,ev,rect.left(),rect.top()));
+                state.dock.drag_event(DragEventMsg::DragStart(file_id,ev));
             }
 
             on:dragover=move |ev| {
@@ -435,6 +829,9 @@ pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:Node
             if !is_running() {
                 run_app();
                 set_jumping(true);
+            }
+            on:transitionend = move |ev| {
+                state.dock.transition_end(file_id);
             }
         >
            
@@ -452,6 +849,7 @@ pub fn Icon(file_id:Uuid, id_left:Option<Uuid>,id_right:Option<Uuid>,parent:Node
         </div>
     }
 }
+*/
 /* //take 2
 #[derive(PartialEq,Clone,Copy,Debug)]
 pub struct ZBoostDock(pub RwSignal<bool>);

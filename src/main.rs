@@ -15,6 +15,7 @@ mod ssr_imports {
 async fn main() {
     use ssr_imports::*;
     use site_os::App;
+    stylers::build(Some(String::from("./target/main.css")));
     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
