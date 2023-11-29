@@ -65,14 +65,17 @@ impl DockData {
             dock_icons: create_rw_signal(list.into_iter().map(|id: Uuid|(id,{
                 let move_data = create_rw_signal(MoveData::default());
                 let rect = create_rw_signal(Rect::default());
+                let magnification = create_rw_signal(None);
                 (
                     create_rw_signal(DockIconData{
                         is_being_dragged: create_rw_signal(false),
                         rect,
                         move_data,
+                        magnification
                     }),
                     create_rw_signal(DockIconSpacingData{
                         move_data,   
+                        magnification,
                         icon_rect:rect,                
                     })
                 )
@@ -217,12 +220,14 @@ pub struct DockIconData{
     is_being_dragged:RwSignal<bool>,
     move_data:RwSignal<MoveData>,
     rect:RwSignal<Rect>,
+    magnification:RwSignal<Option<f64>>,
 }
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct DockIconSpacingData{
     move_data:RwSignal<MoveData>,
     icon_rect:RwSignal<Rect>,
+    magnification:RwSignal<f64>,
 }
 
 #[derive(Copy,Clone,Debug,PartialEq,Default)]
@@ -272,6 +277,10 @@ pub fn Dock() -> impl IntoView {
         <div 
         class="bg-slate-700 p-2 backdrop-blur-md fixed bottom-0 bg-opacity-50 rounded-2xl
         left-1/2 transform -translate-x-1/2 flex"
+        on:mouseover=move |ev| {
+            // get the x, find the bounds of each icon. an icon is being magnified to the extent the x is near it's midway point.
+            // so moving the mouse to the left of an icon magnifies it and it's leftmost neighbor more then it's rightmost neighbor.
+        }
         >
         <For 
         each=move || (state.dock.init_ids)().into_iter()
@@ -321,13 +330,21 @@ pub fn IconSpacing(file_id:Uuid) -> impl IntoView {
     });
     view!{
         <div _ref=spacing_ref
-        class="w-auto min-w-[0.25rem] bg-blue-200"
+        class="w-auto min-w-[0.25rem] bg-blue-200 absolute"
             style="transition:width 250ms linear,left 250ms linear;"
             on:dragover = move |ev| {
-
+                state.dock.drag_over_spacing(ev,file_id);
+            }
+            on:dragenter = move |ev| {
+                spacing_ref().unwrap()
+                    .style("width","4.5rem");
+            }
+            on:dragleave = move |ev| {
+                spacing_ref().unwrap()
+                .style("width","auto");
             }
             on:drop = move |ev| {
-
+               // set the dragged icon's position to be equal to the spacing and then add the id to the id vector and reinit the dock.
             }
             on:transitionrun = move |ev| {
                 spacing_ref().unwrap().style("pointer-events","none");
@@ -346,6 +363,7 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
     let state = expect_context::<GlobalState>();
     let icon_ref = create_node_ref::<leptos::html::Div>();
     let (data,_) = state.dock.dock_icons.get_untracked().get(&file_id).cloned().unwrap();
+    let move_data = data.get_untracked().move_data;
     let is_being_dragged = data.get_untracked().is_being_dragged;
     let img_src = move || state.img_src(file_id);
     let is_running = move || state.is_running(file_id);
@@ -356,12 +374,15 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
         x, y, ..
     } = leptos_use::use_mouse();
     let drag_data = state.dock.drag_start_data;
+    let magnification = data.get_untracked().magnification;
     create_effect( move |_| {
         if is_being_dragged() {
             let drag_data = drag_data.get_untracked().unwrap();
-            _ = icon_ref().unwrap()
-                .style("left",&format!("{}px",x()+drag_data.offset_x))
-                .style("top",&format!("{}px",y()+drag_data.offset_y)); 
+            request_animation_frame(move || {
+                _ = icon_ref().unwrap()
+                .style("left",&format!("{}px",x()-drag_data.offset_x))
+                .style("top",&format!("{}px",y()-drag_data.offset_y));
+            })
         } else {
             let Rect {left,top,..} = rect();
             _ = icon_ref().unwrap()
@@ -370,24 +391,57 @@ pub fn Icon(file_id:Uuid) -> impl IntoView {
         }     
     });
 
+    create_effect(move |_| {
+        let MoveData{ 
+            has_moved_left, 
+            has_moved_right, 
+            has_shifted_left_new_addition, 
+            has_shifted_right_new_addition } = move_data();
+        if has_moved_left && has_moved_right {
+            move_data.update(|data|{
+                data.has_moved_left = false;
+                data.has_moved_right = false;
+            })
+        }
+        if has_shifted_left_new_addition && has_shifted_right_new_addition {
+            move_data.update(|data|{
+                data.has_shifted_left_new_addition = false;
+                data.has_shifted_right_new_addition = false;
+            })
+        }
+    });
+    create_effect(move |_| {
+        if let Some(magnifcation) = magnification() {
+            _ = icon_ref().unwrap().style("transform",&format!("scale({})",magnifcation));
+        } else {
+            _ = icon_ref().unwrap().style("transform","scale(1)");
+        }
+    });
     view!{
         <div _ref=icon_ref
-        class="z-10 w-[4.5rem] h-[4.5rem]"
+        class="z-10 w-[4.5rem] h-[4.5rem] absolute"
         class=("animate-jump",move || is_jumping())
             on:dragstart=move|ev| {    
                 icon_ref().unwrap().style("transition","");
                 set_img_transparent(&ev).unwrap();
                 let x = ev.client_x();
-                state.dock.drag_start_x.set_untracked(Some(x));
+                let rect = icon_ref().unwrap().get_bounding_client_rect();
+                let offset_x = x - rect.left();
+                let offset_y = ev.client_y() - rect.top();
+                state.dock.drag_start_data.set_untracked(Some(DragStartData{ drag_start_x: x, offset_x, offset_y }));
             }
             on:dragover=move |ev| {
-            
+                state.dock.drag_over_icon(ev,file_id);
             }
             on:drop=move |ev| {
-                // when you drop an icon on an icon it moves into it's spacing..
-                // i.e find out the left top of the spacing and move the icon there, stretch the spacing and reinit the dock.
+                // when you drop an icon on an icon it moves into it's spacing.. which stretches to fit it.
             }
-            on:dragend=move|_|{
+            on:dragend=move|ev|{
+                let y = ev.client_y();
+                let dock_border = (state.dock.bg_rect)().unwrap().top - DOCK_AREA_ABOVE;
+                if y < dock_border {
+                    // close the space around the icon's gap, decrease border sides and re_init the dock.
+                }
                 icon_ref().unwrap().style("transition","left 250ms linear, top 250ms linear");
             }
             on:click =  move |_| 
